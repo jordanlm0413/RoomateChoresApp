@@ -1,6 +1,19 @@
-# flutter_application_1
+# Roomie Rhythm
 
-A new Flutter project.
+Roommate chore planning app built with Flutter.
+
+## Codemagic iOS build
+
+This repository includes `codemagic.yaml` for a signed iOS release build.
+
+Before starting the workflow in Codemagic:
+
+1. Connect this repository to Codemagic.
+2. Create or select the App Store Connect API integration.
+3. Add the iOS signing certificate and provisioning profile for `com.roomierhythm.app`.
+4. Start the `ios-release` workflow.
+
+The workflow builds an IPA and submits it to TestFlight. Apple Developer and App Store Connect access are still required.
 
 ## Getting Started
 
