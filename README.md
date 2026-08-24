@@ -1,6 +1,6 @@
 # Roomie Rhythm
 
-A shared chore board with real accounts, homes, and invites — built for **Cloudflare Pages** (static frontend) + **Pages Functions** (serverless API) + **D1** (SQLite-compatible database).
+A shared chore board with real accounts, homes, and invites — built as a single **Cloudflare Worker** that serves the static frontend (via the `assets` binding) and a JSON API (via a manual `/api/*` router), backed by **D1** (SQLite-compatible database).
 
 ## Features
 
@@ -27,24 +27,25 @@ A shared chore board with real accounts, homes, and invites — built for **Clou
    wrangler d1 execute roomie-rhythm-db --local --file=./schema.sql
    wrangler d1 execute roomie-rhythm-db --remote --file=./schema.sql
    ```
-4. Run the site locally (serves static files + Functions + local D1):
+4. Run the site locally:
    ```
-   wrangler pages dev . --d1=DB=roomie-rhythm-db
+   wrangler dev
    ```
-   Then open the printed `http://localhost:8788` URL.
+   Then open the printed `http://localhost:8787` URL.
 
 ## Deploying
 
 ```
-wrangler pages deploy .
+wrangler deploy
 ```
 
-Make sure the `DB` binding is configured in the Cloudflare Pages dashboard (Settings → Functions → D1 database bindings) pointing at `roomie-rhythm-db`, or it will be picked up automatically from `wrangler.toml` when deploying via Wrangler.
+In the Cloudflare dashboard, make sure your project's **Deploy command** (Settings → Builds) is `npx wrangler deploy` (this is a Worker, not a classic Pages project) and that the `DB` D1 binding is configured (Settings → Bindings), or it will be picked up automatically from `wrangler.toml` when deploying via Wrangler.
 
 ## Project structure
 
-- `index.html`, `auth.js`, `auth.html`, `app.js`, `styles.css` — static frontend served directly by Pages
-- `functions/api/**` — Pages Functions (serverless API routes), file-based routing
-- `functions/_lib/auth.js` — shared password hashing, session, and auth-guard helpers (not routable, underscore-prefixed)
+- `index.html`, `auth.js`, `auth.html`, `app.js`, `styles.css` — static frontend served by the Worker's `assets` binding
+- `src/index.js` — Worker entry point: routes `/api/*` requests, otherwise falls through to static assets
+- `src/lib/auth.js` — password hashing, session, and auth-guard helpers
 - `schema.sql` — D1 database schema
-- `wrangler.toml` — Pages project + D1 binding config
+- `wrangler.toml` — Worker + assets + D1 binding config
+- `.assetsignore` — excludes source/config files (and `.git`) from being uploaded as public static assets

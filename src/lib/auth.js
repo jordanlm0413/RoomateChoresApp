@@ -1,10 +1,9 @@
-// Shared helpers for Pages Functions. Files under an underscore-prefixed folder
-// are NOT routable — safe to import from route handlers.
+// Shared helpers for the Worker: password hashing, sessions, auth guards.
 
 const SESSION_COOKIE = "session_id";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-function newId() {
+export function newId() {
   return crypto.randomUUID();
 }
 
@@ -38,13 +37,13 @@ async function deriveBits(password, salt) {
   return new Uint8Array(bits);
 }
 
-async function hashPassword(password) {
+export async function hashPassword(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await deriveBits(password, salt);
   return `${toHex(salt)}:${toHex(hash)}`;
 }
 
-async function verifyPassword(password, stored) {
+export async function verifyPassword(password, stored) {
   const [saltHex, hashHex] = String(stored).split(":");
   if (!saltHex || !hashHex) return false;
   const salt = fromHex(saltHex);
@@ -78,12 +77,12 @@ function sessionCookieHeader(token, request) {
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 
-function clearCookieHeader(request) {
+export function clearCookieHeader(request) {
   const secure = new URL(request.url).protocol === "https:" ? " Secure;" : "";
   return `${SESSION_COOKIE}=; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=0`;
 }
 
-async function createSession(env, userId, request) {
+export async function createSession(env, userId, request) {
   const token = newId();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   await env.DB.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
@@ -92,8 +91,7 @@ async function createSession(env, userId, request) {
   return sessionCookieHeader(token, request);
 }
 
-async function getSessionUser(context) {
-  const { request, env } = context;
+export async function getSessionUser(request, env) {
   const cookies = parseCookies(request);
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
@@ -114,8 +112,7 @@ async function getSessionUser(context) {
   return { id: row.id, username: row.username };
 }
 
-async function destroySession(context) {
-  const { request, env } = context;
+export async function destroySession(request, env) {
   const cookies = parseCookies(request);
   const token = cookies[SESSION_COOKIE];
   if (token) {
@@ -123,7 +120,7 @@ async function destroySession(context) {
   }
 }
 
-function json(data, init = {}) {
+export function json(data, init = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: {
@@ -133,15 +130,15 @@ function json(data, init = {}) {
   });
 }
 
-async function requireAuth(context) {
-  const user = await getSessionUser(context);
+export async function requireAuth(request, env) {
+  const user = await getSessionUser(request, env);
   if (!user) {
     return { error: json({ error: "Not signed in." }, { status: 401 }) };
   }
   return { user };
 }
 
-async function requireHomeMember(env, homeId, userId) {
+export async function requireHomeMember(env, homeId, userId) {
   const row = await env.DB.prepare(
     "SELECT role FROM home_members WHERE home_id = ? AND user_id = ?"
   )
@@ -150,21 +147,7 @@ async function requireHomeMember(env, homeId, userId) {
   return row ? row.role : null;
 }
 
-function newInviteCode() {
+export function newInviteCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
   return toHex(bytes).toUpperCase();
 }
-
-export {
-  newId,
-  hashPassword,
-  verifyPassword,
-  createSession,
-  getSessionUser,
-  destroySession,
-  clearCookieHeader,
-  json,
-  requireAuth,
-  requireHomeMember,
-  newInviteCode,
-};
