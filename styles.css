@@ -58,6 +58,37 @@ body {
   gap: 1rem;
 }
 
+.main-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.main-tab {
+  border: 1px solid var(--stroke);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+}
+
+.main-tab.active {
+  background: linear-gradient(120deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border-color: transparent;
+}
+
+[data-tab-panel] {
+  display: grid;
+  gap: 1rem;
+}
+
+[data-tab-panel][hidden] {
+  display: none;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: clamp(2rem, 4.5vw, 3.2rem);
@@ -234,7 +265,8 @@ select {
   max-width: 460px;
 }
 
-.auth-panel .tabs {
+.auth-panel .tabs,
+.tabs {
   display: flex;
   gap: 0.4rem;
   margin-bottom: 1rem;
@@ -335,6 +367,93 @@ select {
   margin-left: 0.4rem;
 }
 
+/* Calendar */
+.calendar-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.4rem;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding-bottom: 0.2rem;
+}
+
+.calendar-cell {
+  min-height: 5.5rem;
+  background: #fff;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 0.35rem;
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+}
+
+.calendar-cell-blank {
+  background: transparent;
+  border-color: transparent;
+}
+
+.calendar-cell-today {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand) inset;
+}
+
+.calendar-day-number {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.calendar-chore {
+  font-size: 0.76rem;
+  background: rgba(31, 122, 90, 0.12);
+  color: var(--brand);
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-chore.done {
+  background: transparent;
+  border: 1px solid var(--stroke);
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* Settings */
+.panel-settings [data-settings-panel] {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.panel-settings [data-settings-panel][hidden] {
+  display: none;
+}
+
+.home-settings-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn.danger {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.success {
+  margin-top: 0.9rem;
+  color: var(--brand);
+  font-size: 0.9rem;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -358,5 +477,13 @@ select {
 
   .panel-homes .home-forms {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-cell {
+    min-height: 3.5rem;
+  }
+
+  .calendar-weekday {
+    font-size: 0.65rem;
   }
 }

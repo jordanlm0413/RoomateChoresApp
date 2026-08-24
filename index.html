@@ -68,53 +68,123 @@
       <p id="home-error" class="error" hidden></p>
     </section>
 
-    <section class="panel panel-form" aria-label="Add chore">
-      <h2>Add Chore</h2>
-      <form id="chore-form">
-        <div class="grid">
-          <label>
-            Chore
-            <input id="title" type="text" maxlength="80" placeholder="Take out trash" required />
-          </label>
-          <label>
-            Assignee
-            <input id="assignee" type="text" maxlength="40" placeholder="Jordan" required />
-          </label>
-          <label>
-            Room
-            <select id="room">
-              <option>Kitchen</option>
-              <option>Living Room</option>
-              <option>Bathroom</option>
-              <option>Bedroom</option>
-              <option>Other</option>
+    <nav class="main-tabs" aria-label="Main sections">
+      <button type="button" class="main-tab active" data-tab="chores">Chores</button>
+      <button type="button" class="main-tab" data-tab="calendar">Calendar</button>
+      <button type="button" class="main-tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <div data-tab-panel="chores">
+      <section class="panel panel-form" aria-label="Add chore">
+        <h2>Add Chore</h2>
+        <form id="chore-form">
+          <div class="grid">
+            <label>
+              Chore
+              <input id="title" type="text" maxlength="80" placeholder="Take out trash" required />
+            </label>
+            <label>
+              Assignee
+              <input id="assignee" type="text" maxlength="40" placeholder="Jordan" required />
+            </label>
+            <label>
+              Room
+              <select id="room">
+                <option>Kitchen</option>
+                <option>Living Room</option>
+                <option>Bathroom</option>
+                <option>Bedroom</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>
+              Due Date
+              <input id="dueDate" type="date" />
+            </label>
+          </div>
+          <button type="submit" class="btn primary">Add</button>
+        </form>
+      </section>
+
+      <section class="panel panel-list" aria-label="Chore list">
+        <div class="list-head">
+          <h2>Chores</h2>
+          <div class="actions">
+            <select id="filter">
+              <option value="all">All</option>
+              <option value="open">Open</option>
+              <option value="done">Done</option>
             </select>
-          </label>
-          <label>
-            Due Date
-            <input id="dueDate" type="date" />
-          </label>
+            <button id="clear-done" class="btn ghost" type="button">Clear Done</button>
+          </div>
         </div>
-        <button type="submit" class="btn primary">Add</button>
-      </form>
-    </section>
 
-    <section class="panel panel-list" aria-label="Chore list">
-      <div class="list-head">
-        <h2>Chores</h2>
-        <div class="actions">
-          <select id="filter">
-            <option value="all">All</option>
-            <option value="open">Open</option>
-            <option value="done">Done</option>
-          </select>
-          <button id="clear-done" class="btn ghost" type="button">Clear Done</button>
+        <ul id="chore-list" class="chore-list"></ul>
+        <p id="empty-state" class="empty">No chores yet. Add your first one above.</p>
+      </section>
+    </div>
+
+    <div data-tab-panel="calendar" hidden>
+      <section class="panel panel-calendar" aria-label="Calendar">
+        <div class="list-head">
+          <h2 id="calendar-month-label">Calendar</h2>
+          <div class="actions">
+            <button id="calendar-prev" class="btn ghost" type="button" aria-label="Previous month">&larr;</button>
+            <button id="calendar-today" class="btn ghost" type="button">Today</button>
+            <button id="calendar-next" class="btn ghost" type="button" aria-label="Next month">&rarr;</button>
+          </div>
         </div>
-      </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+    </div>
 
-      <ul id="chore-list" class="chore-list"></ul>
-      <p id="empty-state" class="empty">No chores yet. Add your first one above.</p>
-    </section>
+    <div data-tab-panel="settings" hidden>
+      <section class="panel panel-settings" aria-label="Settings">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-settings-tab="account">Account</button>
+          <button type="button" class="tab" data-settings-tab="home">Home</button>
+        </div>
+
+        <div data-settings-panel="account">
+          <form id="account-form" class="auth-form">
+            <label>
+              New username
+              <input id="settings-username" type="text" minlength="3" maxlength="24" placeholder="Leave blank to keep current" />
+            </label>
+            <label>
+              New password
+              <input id="settings-new-password" type="password" minlength="8" placeholder="Leave blank to keep current" />
+            </label>
+            <label>
+              Current password
+              <input id="settings-current-password" type="password" required autocomplete="current-password" />
+            </label>
+            <button type="submit" class="btn primary">Save Account Changes</button>
+          </form>
+          <p id="account-error" class="error" hidden></p>
+          <p id="account-success" class="success" hidden></p>
+        </div>
+
+        <div data-settings-panel="home" hidden>
+          <form id="rename-home-form" class="inline-form">
+            <label>
+              Home name
+              <input id="rename-home-input" type="text" maxlength="60" />
+            </label>
+            <button type="submit" class="btn primary">Rename Home</button>
+          </form>
+
+          <div class="home-settings-actions">
+            <button id="regenerate-code-btn" class="btn ghost" type="button">Regenerate Invite Code</button>
+            <button id="leave-home-btn" class="btn ghost" type="button">Leave Home</button>
+            <button id="delete-home-btn" class="btn ghost danger" type="button">Delete Home</button>
+          </div>
+
+          <p id="settings-home-error" class="error" hidden></p>
+          <p id="settings-home-success" class="success" hidden></p>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script src="app.js"></script>

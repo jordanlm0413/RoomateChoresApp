@@ -96,6 +96,64 @@ async function handleMe(request, env) {
   return json({ user });
 }
 
+async function handleUpdateAccount(request, env) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const body = await readJson(request);
+  if (!body) return json({ error: "Invalid request body." }, { status: 400 });
+
+  const currentPassword = String(body.currentPassword || "");
+  const newUsername = body.newUsername != null ? String(body.newUsername).trim() : null;
+  const newPassword = body.newPassword != null ? String(body.newPassword) : null;
+
+  if (!newUsername && !newPassword) {
+    return json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  const user = await env.DB.prepare("SELECT id, password_hash FROM users WHERE id = ?")
+    .bind(auth.user.id)
+    .first();
+  if (!currentPassword || !(await verifyPassword(currentPassword, user.password_hash))) {
+    return json({ error: "Current password is incorrect." }, { status: 401 });
+  }
+
+  if (newUsername) {
+    if (!USERNAME_RE.test(newUsername)) {
+      return json(
+        { error: "Username must be 3-24 characters (letters, numbers, _ . -)." },
+        { status: 400 }
+      );
+    }
+    const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ? AND id != ?")
+      .bind(newUsername, auth.user.id)
+      .first();
+    if (existing) return json({ error: "That username is already taken." }, { status: 409 });
+  }
+
+  if (newPassword && newPassword.length < 8) {
+    return json({ error: "New password must be at least 8 characters." }, { status: 400 });
+  }
+
+  const updates = [];
+  const values = [];
+  if (newUsername) {
+    updates.push("username = ?");
+    values.push(newUsername);
+  }
+  if (newPassword) {
+    updates.push("password_hash = ?");
+    values.push(await hashPassword(newPassword));
+  }
+  values.push(auth.user.id);
+
+  await env.DB.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`)
+    .bind(...values)
+    .run();
+
+  return json({ user: { id: auth.user.id, username: newUsername || auth.user.username } });
+}
+
 async function handleListHomes(request, env) {
   const auth = await requireAuth(request, env);
   if (auth.error) return auth.error;
@@ -225,6 +283,85 @@ async function handleInvite(request, env, homeId) {
     .run();
 
   return json({ member: { id: invitee.id, username: invitee.username, role: "member" } }, { status: 201 });
+}
+
+async function handleUpdateHome(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") {
+    return json({ error: "Only the home owner can rename this home." }, { status: 403 });
+  }
+
+  const body = await readJson(request);
+  if (!body) return json({ error: "Invalid request body." }, { status: 400 });
+
+  const name = String(body.name || "").trim();
+  if (name.length < 2 || name.length > 60) {
+    return json({ error: "Home name must be 2-60 characters." }, { status: 400 });
+  }
+
+  await env.DB.prepare("UPDATE homes SET name = ? WHERE id = ?").bind(name, homeId).run();
+  return json({ ok: true, name });
+}
+
+async function handleRegenerateInviteCode(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") {
+    return json({ error: "Only the home owner can regenerate the invite code." }, { status: 403 });
+  }
+
+  let inviteCode = newInviteCode();
+  for (let attempts = 0; attempts < 5; attempts++) {
+    const existing = await env.DB.prepare("SELECT id FROM homes WHERE invite_code = ?")
+      .bind(inviteCode)
+      .first();
+    if (!existing) break;
+    inviteCode = newInviteCode();
+  }
+
+  await env.DB.prepare("UPDATE homes SET invite_code = ? WHERE id = ?")
+    .bind(inviteCode, homeId)
+    .run();
+
+  return json({ inviteCode });
+}
+
+async function handleLeaveHome(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
+  if (role === "owner") {
+    return json(
+      { error: "Owners cannot leave a home. Delete it or transfer ownership instead." },
+      { status: 400 }
+    );
+  }
+
+  await env.DB.prepare("DELETE FROM home_members WHERE home_id = ? AND user_id = ?")
+    .bind(homeId, auth.user.id)
+    .run();
+
+  return json({ ok: true });
+}
+
+async function handleDeleteHome(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") {
+    return json({ error: "Only the home owner can delete this home." }, { status: 403 });
+  }
+
+  await env.DB.prepare("DELETE FROM homes WHERE id = ?").bind(homeId).run();
+  return json({ ok: true });
 }
 
 async function handleListMembers(request, env, homeId) {
@@ -361,6 +498,7 @@ async function routeApi(request, env) {
     if (parts[2] === "login" && method === "POST") return handleLogin(request, env);
     if (parts[2] === "logout" && method === "POST") return handleLogout(request, env);
     if (parts[2] === "me" && method === "GET") return handleMe(request, env);
+    if (parts[2] === "me" && method === "PATCH") return handleUpdateAccount(request, env);
     return json({ error: "Not found." }, { status: 404 });
   }
 
@@ -374,8 +512,18 @@ async function routeApi(request, env) {
     }
 
     const homeId = parts[2];
+    if (homeId && parts.length === 3) {
+      if (method === "PATCH") return handleUpdateHome(request, env, homeId);
+      if (method === "DELETE") return handleDeleteHome(request, env, homeId);
+    }
     if (homeId && parts[3] === "invite" && parts.length === 4 && method === "POST") {
       return handleInvite(request, env, homeId);
+    }
+    if (homeId && parts[3] === "regenerate-code" && parts.length === 4 && method === "POST") {
+      return handleRegenerateInviteCode(request, env, homeId);
+    }
+    if (homeId && parts[3] === "leave" && parts.length === 4 && method === "POST") {
+      return handleLeaveHome(request, env, homeId);
     }
     if (homeId && parts[3] === "members" && parts.length === 4) {
       if (method === "GET") return handleListMembers(request, env, homeId);

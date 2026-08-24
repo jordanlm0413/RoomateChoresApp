@@ -23,6 +23,35 @@ const emptyState = document.getElementById("empty-state");
 const filterEl = document.getElementById("filter");
 const clearDoneBtn = document.getElementById("clear-done");
 
+const mainTabs = document.querySelectorAll(".main-tab");
+const tabPanels = document.querySelectorAll("[data-tab-panel]");
+
+const calendarGrid = document.getElementById("calendar-grid");
+const calendarMonthLabel = document.getElementById("calendar-month-label");
+const calendarPrevBtn = document.getElementById("calendar-prev");
+const calendarNextBtn = document.getElementById("calendar-next");
+const calendarTodayBtn = document.getElementById("calendar-today");
+
+const settingsTabs = document.querySelectorAll("[data-settings-tab]");
+const settingsPanels = document.querySelectorAll("[data-settings-panel]");
+const accountForm = document.getElementById("account-form");
+const settingsUsernameInput = document.getElementById("settings-username");
+const settingsNewPasswordInput = document.getElementById("settings-new-password");
+const settingsCurrentPasswordInput = document.getElementById("settings-current-password");
+const accountErrorEl = document.getElementById("account-error");
+const accountSuccessEl = document.getElementById("account-success");
+
+const renameHomeForm = document.getElementById("rename-home-form");
+const renameHomeInput = document.getElementById("rename-home-input");
+const regenerateCodeBtn = document.getElementById("regenerate-code-btn");
+const leaveHomeBtn = document.getElementById("leave-home-btn");
+const deleteHomeBtn = document.getElementById("delete-home-btn");
+const settingsHomeErrorEl = document.getElementById("settings-home-error");
+const settingsHomeSuccessEl = document.getElementById("settings-home-success");
+
+let calendarCursor = new Date();
+calendarCursor.setDate(1);
+
 const SELECTED_HOME_KEY = "roomie_rhythm_selected_home";
 
 let currentUser = null;
@@ -118,6 +147,7 @@ async function refreshSelectedHome() {
   homeDetails.hidden = false;
   inviteCodeDisplay.textContent = home.inviteCode;
 
+  renderHomeSettingsPanel();
   await Promise.all([loadMembers(home.id), loadChores(home.id)]);
 }
 
@@ -150,6 +180,7 @@ async function loadChores(homeId) {
     const data = await api(`/api/homes/${homeId}/chores`);
     chores = data.chores;
     render();
+    renderCalendar();
   } catch (err) {
     showHomeError(err.message);
   }
@@ -344,6 +375,232 @@ clearDoneBtn.addEventListener("click", async () => {
     await loadChores(home.id);
   } catch (err) {
     showHomeError(err.message);
+  }
+});
+
+// --- Main tab navigation ---
+
+mainTabs.forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    const target = tabBtn.dataset.tab;
+    mainTabs.forEach((btn) => btn.classList.toggle("active", btn === tabBtn));
+    tabPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.tabPanel !== target;
+    });
+    if (target === "calendar") renderCalendar();
+    if (target === "settings") renderHomeSettingsPanel();
+  });
+});
+
+// --- Calendar ---
+
+function renderCalendar() {
+  if (!calendarGrid) return;
+
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
+  calendarMonthLabel.textContent = monthFormatter.format(calendarCursor);
+
+  const choresByDate = {};
+  chores.forEach((chore) => {
+    if (!chore.dueDate || chore.dueDate === "No due date") return;
+    (choresByDate[chore.dueDate] ||= []).push(chore);
+  });
+
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  calendarGrid.innerHTML = "";
+
+  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((label) => {
+    const headerCell = document.createElement("div");
+    headerCell.className = "calendar-weekday";
+    headerCell.textContent = label;
+    calendarGrid.appendChild(headerCell);
+  });
+
+  for (let i = 0; i < startWeekday; i++) {
+    const blank = document.createElement("div");
+    blank.className = "calendar-cell calendar-cell-blank";
+    calendarGrid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayChores = choresByDate[dateStr] || [];
+
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell";
+    if (dateStr === todayStr) cell.classList.add("calendar-cell-today");
+
+    const dayNumber = document.createElement("div");
+    dayNumber.className = "calendar-day-number";
+    dayNumber.textContent = String(day);
+    cell.appendChild(dayNumber);
+
+    dayChores.forEach((chore) => {
+      const item = document.createElement("div");
+      item.className = `calendar-chore ${chore.done ? "done" : ""}`;
+      item.textContent = chore.title;
+      item.title = `${chore.title} · ${chore.assignee}`;
+      cell.appendChild(item);
+    });
+
+    calendarGrid.appendChild(cell);
+  }
+}
+
+calendarPrevBtn.addEventListener("click", () => {
+  calendarCursor.setMonth(calendarCursor.getMonth() - 1);
+  renderCalendar();
+});
+
+calendarNextBtn.addEventListener("click", () => {
+  calendarCursor.setMonth(calendarCursor.getMonth() + 1);
+  renderCalendar();
+});
+
+calendarTodayBtn.addEventListener("click", () => {
+  calendarCursor = new Date();
+  calendarCursor.setDate(1);
+  renderCalendar();
+});
+
+// --- Settings: sub-tabs ---
+
+settingsTabs.forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    const target = tabBtn.dataset.settingsTab;
+    settingsTabs.forEach((btn) => btn.classList.toggle("active", btn === tabBtn));
+    settingsPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.settingsPanel !== target;
+    });
+  });
+});
+
+// --- Settings: account ---
+
+function showAccountError(message) {
+  accountSuccessEl.hidden = true;
+  accountErrorEl.textContent = message;
+  accountErrorEl.hidden = false;
+}
+
+function showAccountSuccess(message) {
+  accountErrorEl.hidden = true;
+  accountSuccessEl.textContent = message;
+  accountSuccessEl.hidden = false;
+}
+
+accountForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const newUsername = settingsUsernameInput.value.trim();
+  const newPassword = settingsNewPasswordInput.value;
+  const currentPassword = settingsCurrentPasswordInput.value;
+
+  if (!newUsername && !newPassword) {
+    showAccountError("Enter a new username and/or new password to update.");
+    return;
+  }
+
+  try {
+    const { user } = await api("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword, newUsername: newUsername || null, newPassword: newPassword || null })
+    });
+    currentUser = user;
+    currentUsernameEl.textContent = user.username;
+    accountForm.reset();
+    showAccountSuccess("Account updated.");
+  } catch (err) {
+    showAccountError(err.message);
+  }
+});
+
+// --- Settings: home ---
+
+function showSettingsHomeError(message) {
+  settingsHomeSuccessEl.hidden = true;
+  settingsHomeErrorEl.textContent = message;
+  settingsHomeErrorEl.hidden = false;
+}
+
+function showSettingsHomeSuccess(message) {
+  settingsHomeErrorEl.hidden = true;
+  settingsHomeSuccessEl.textContent = message;
+  settingsHomeSuccessEl.hidden = false;
+}
+
+function renderHomeSettingsPanel() {
+  const home = currentHome();
+  const hasHome = Boolean(home);
+  const isOwner = hasHome && home.role === "owner";
+
+  renameHomeForm.querySelectorAll("input, button").forEach((el) => (el.disabled = !isOwner));
+  regenerateCodeBtn.disabled = !isOwner;
+  deleteHomeBtn.disabled = !isOwner;
+  leaveHomeBtn.disabled = !hasHome || isOwner;
+  renameHomeInput.value = hasHome ? home.name : "";
+}
+
+renameHomeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const home = currentHome();
+  const name = renameHomeInput.value.trim();
+  if (!home || !name) return;
+
+  try {
+    await api(`/api/homes/${home.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+    showSettingsHomeSuccess("Home renamed.");
+    await loadHomes();
+  } catch (err) {
+    showSettingsHomeError(err.message);
+  }
+});
+
+regenerateCodeBtn.addEventListener("click", async () => {
+  const home = currentHome();
+  if (!home) return;
+
+  try {
+    const { inviteCode } = await api(`/api/homes/${home.id}/regenerate-code`, { method: "POST" });
+    showSettingsHomeSuccess(`New invite code: ${inviteCode}`);
+    await loadHomes();
+  } catch (err) {
+    showSettingsHomeError(err.message);
+  }
+});
+
+leaveHomeBtn.addEventListener("click", async () => {
+  const home = currentHome();
+  if (!home) return;
+  if (!confirm(`Leave "${home.name}"?`)) return;
+
+  try {
+    await api(`/api/homes/${home.id}/leave`, { method: "POST" });
+    selectedHomeId = null;
+    await loadHomes();
+    showSettingsHomeSuccess("You left the home.");
+  } catch (err) {
+    showSettingsHomeError(err.message);
+  }
+});
+
+deleteHomeBtn.addEventListener("click", async () => {
+  const home = currentHome();
+  if (!home) return;
+  if (!confirm(`Delete "${home.name}"? This removes all its chores and members permanently.`)) return;
+
+  try {
+    await api(`/api/homes/${home.id}`, { method: "DELETE" });
+    selectedHomeId = null;
+    await loadHomes();
+    showSettingsHomeSuccess("Home deleted.");
+  } catch (err) {
+    showSettingsHomeError(err.message);
   }
 });
 
