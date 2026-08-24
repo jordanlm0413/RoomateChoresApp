@@ -21,12 +21,24 @@ function setActiveTab(which) {
   tabSignup.classList.toggle("active", !isLogin);
   tabLogin.setAttribute("aria-selected", String(isLogin));
   tabSignup.setAttribute("aria-selected", String(!isLogin));
+  tabLogin.tabIndex = isLogin ? 0 : -1;
+  tabSignup.tabIndex = isLogin ? -1 : 0;
   loginForm.hidden = !isLogin;
   signupForm.hidden = isLogin;
 }
 
 tabLogin.addEventListener("click", () => setActiveTab("login"));
 tabSignup.addEventListener("click", () => setActiveTab("signup"));
+
+[tabLogin, tabSignup].forEach((tabBtn) => {
+  tabBtn.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const next = tabBtn === tabLogin ? tabSignup : tabLogin;
+    setActiveTab(next === tabLogin ? "login" : "signup");
+    next.focus();
+  });
+});
 
 async function checkExistingSession() {
   try {
@@ -86,5 +98,31 @@ signupForm.addEventListener("submit", async (event) => {
     showError("Network error. Please try again.");
   }
 });
+
+// --- Theme toggle ---
+
+const THEME_KEY = "roomie_rhythm_theme";
+const themeToggleBtn = document.getElementById("theme-toggle");
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  if (themeToggleBtn) {
+    const isDark = theme === "dark";
+    themeToggleBtn.setAttribute("aria-pressed", String(isDark));
+    themeToggleBtn.textContent = isDark ? "Light Mode" : "Dark Mode";
+  }
+}
+
+const storedTheme = localStorage.getItem(THEME_KEY);
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
+}
 
 checkExistingSession();

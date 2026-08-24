@@ -22,6 +22,27 @@ async function readJson(request) {
   }
 }
 
+const RECURRENCE_VALUES = new Set(["none", "daily", "weekly", "monthly"]);
+
+function nextDueDate(dueDate, recurrence) {
+  if (!dueDate) return null;
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (recurrence === "daily") date.setUTCDate(date.getUTCDate() + 1);
+  else if (recurrence === "weekly") date.setUTCDate(date.getUTCDate() + 7);
+  else if (recurrence === "monthly") date.setUTCMonth(date.getUTCMonth() + 1);
+  else return null;
+  return date.toISOString().slice(0, 10);
+}
+
+async function logActivity(env, homeId, actorUsername, action, detail) {
+  await env.DB.prepare(
+    "INSERT INTO activity_log (id, home_id, actor_username, action, detail) VALUES (?, ?, ?, ?, ?)"
+  )
+    .bind(newId(), homeId, actorUsername, action, detail || null)
+    .run();
+}
+
 async function handleRegister(request, env) {
   const body = await readJson(request);
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
@@ -413,11 +434,21 @@ async function handleListChores(request, env, homeId) {
   const role = await requireHomeMember(env, homeId, auth.user.id);
   if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
 
-  const { results } = await env.DB.prepare(
-    `SELECT id, title, assignee, room, due_date AS dueDate, done
-     FROM chores WHERE home_id = ? ORDER BY created_at DESC`
-  )
-    .bind(homeId)
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") || "").trim();
+
+  let query = `SELECT id, title, assignee, room, category, recurrence, due_date AS dueDate, done
+     FROM chores WHERE home_id = ?`;
+  const bindings = [homeId];
+  if (q) {
+    query += ` AND (title LIKE ? OR assignee LIKE ? OR room LIKE ? OR category LIKE ?)`;
+    const like = `%${q}%`;
+    bindings.push(like, like, like, like);
+  }
+  query += ` ORDER BY created_at DESC`;
+
+  const { results } = await env.DB.prepare(query)
+    .bind(...bindings)
     .all();
 
   return json({ chores: results.map((c) => ({ ...c, done: !!c.done })) });
@@ -436,6 +467,8 @@ async function handleCreateChore(request, env, homeId) {
   const title = String(body.title || "").trim().slice(0, 80);
   const assignee = String(body.assignee || "").trim().slice(0, 40);
   const room = String(body.room || "Other").trim().slice(0, 40);
+  const category = body.category ? String(body.category).trim().slice(0, 40) : null;
+  const recurrence = RECURRENCE_VALUES.has(body.recurrence) ? body.recurrence : "none";
   const dueDate = body.dueDate ? String(body.dueDate).slice(0, 20) : null;
 
   if (!title || !assignee) {
@@ -444,13 +477,26 @@ async function handleCreateChore(request, env, homeId) {
 
   const id = newId();
   await env.DB.prepare(
-    "INSERT INTO chores (id, home_id, title, assignee, room, due_date, done) VALUES (?, ?, ?, ?, ?, ?, 0)"
+    "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
   )
-    .bind(id, homeId, title, assignee, room, dueDate)
+    .bind(id, homeId, title, assignee, room, category, recurrence, dueDate)
     .run();
 
+  await logActivity(env, homeId, auth.user.username, "created", title);
+
   return json(
-    { chore: { id, title, assignee, room, dueDate: dueDate || "No due date", done: false } },
+    {
+      chore: {
+        id,
+        title,
+        assignee,
+        room,
+        category,
+        recurrence,
+        dueDate: dueDate || "No due date",
+        done: false
+      }
+    },
     { status: 201 }
   );
 }
@@ -465,12 +511,29 @@ async function handleUpdateChore(request, env, homeId, choreId) {
   const body = await readJson(request);
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
 
+  const chore = await env.DB.prepare(
+    "SELECT title, assignee, room, category, recurrence, due_date AS dueDate FROM chores WHERE id = ? AND home_id = ?"
+  )
+    .bind(choreId, homeId)
+    .first();
+  if (!chore) return json({ error: "Chore not found." }, { status: 404 });
+
   const done = body.done ? 1 : 0;
-  const result = await env.DB.prepare("UPDATE chores SET done = ? WHERE id = ? AND home_id = ?")
+  await env.DB.prepare("UPDATE chores SET done = ? WHERE id = ? AND home_id = ?")
     .bind(done, choreId, homeId)
     .run();
 
-  if (result.meta.changes === 0) return json({ error: "Chore not found." }, { status: 404 });
+  await logActivity(env, homeId, auth.user.username, done ? "completed" : "reopened", chore.title);
+
+  if (done && chore.recurrence !== "none") {
+    const upcomingDueDate = nextDueDate(chore.dueDate, chore.recurrence);
+    await env.DB.prepare(
+      "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
+    )
+      .bind(newId(), homeId, chore.title, chore.assignee, chore.room, chore.category, chore.recurrence, upcomingDueDate)
+      .run();
+  }
+
   return json({ ok: true });
 }
 
@@ -481,8 +544,190 @@ async function handleDeleteChore(request, env, homeId, choreId) {
   const role = await requireHomeMember(env, homeId, auth.user.id);
   if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
 
+  const chore = await env.DB.prepare("SELECT title FROM chores WHERE id = ? AND home_id = ?")
+    .bind(choreId, homeId)
+    .first();
+
   await env.DB.prepare("DELETE FROM chores WHERE id = ? AND home_id = ?")
     .bind(choreId, homeId)
+    .run();
+
+  if (chore) await logActivity(env, homeId, auth.user.username, "deleted", chore.title);
+
+  return json({ ok: true });
+}
+
+async function handleRandomizeAssignment(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
+
+  const body = await readJson(request);
+  const groupId = body && body.groupId ? String(body.groupId) : null;
+
+  let members;
+  if (groupId) {
+    const { results } = await env.DB.prepare(
+      `SELECT users.username AS username FROM group_members
+       JOIN users ON users.id = group_members.user_id
+       WHERE group_members.group_id = ?`
+    )
+      .bind(groupId)
+      .all();
+    members = results;
+  } else {
+    const { results } = await env.DB.prepare(
+      `SELECT users.username AS username FROM home_members
+       JOIN users ON users.id = home_members.user_id
+       WHERE home_members.home_id = ?`
+    )
+      .bind(homeId)
+      .all();
+    members = results;
+  }
+
+  if (members.length === 0) {
+    return json({ error: "No members available to assign chores to." }, { status: 400 });
+  }
+
+  const { results: openChores } = await env.DB.prepare(
+    "SELECT id FROM chores WHERE home_id = ? AND done = 0"
+  )
+    .bind(homeId)
+    .all();
+
+  const usernames = members.map((m) => m.username);
+  for (const chore of openChores) {
+    const assignee = usernames[Math.floor(Math.random() * usernames.length)];
+    await env.DB.prepare("UPDATE chores SET assignee = ? WHERE id = ?")
+      .bind(assignee, chore.id)
+      .run();
+  }
+
+  await logActivity(env, homeId, auth.user.username, "randomized", `${openChores.length} chore(s)`);
+
+  return json({ ok: true, count: openChores.length });
+}
+
+async function handleListActivity(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
+
+  const { results } = await env.DB.prepare(
+    `SELECT actor_username AS actor, action, detail, created_at AS createdAt
+     FROM activity_log WHERE home_id = ? ORDER BY created_at DESC LIMIT 50`
+  )
+    .bind(homeId)
+    .all();
+
+  return json({ activity: results });
+}
+
+async function handleListGroups(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
+
+  const { results: groups } = await env.DB.prepare(
+    "SELECT id, name FROM groups WHERE home_id = ? ORDER BY created_at ASC"
+  )
+    .bind(homeId)
+    .all();
+
+  for (const group of groups) {
+    const { results: members } = await env.DB.prepare(
+      `SELECT users.id AS id, users.username AS username FROM group_members
+       JOIN users ON users.id = group_members.user_id
+       WHERE group_members.group_id = ?`
+    )
+      .bind(group.id)
+      .all();
+    group.members = members;
+  }
+
+  return json({ groups });
+}
+
+async function handleCreateGroup(request, env, homeId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") return json({ error: "Only the home owner can create groups." }, { status: 403 });
+
+  const body = await readJson(request);
+  if (!body) return json({ error: "Invalid request body." }, { status: 400 });
+
+  const name = String(body.name || "").trim().slice(0, 40);
+  if (!name) return json({ error: "Group name is required." }, { status: 400 });
+
+  const id = newId();
+  await env.DB.prepare("INSERT INTO groups (id, home_id, name) VALUES (?, ?, ?)")
+    .bind(id, homeId, name)
+    .run();
+
+  return json({ group: { id, name, members: [] } }, { status: 201 });
+}
+
+async function handleDeleteGroup(request, env, homeId, groupId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") return json({ error: "Only the home owner can delete groups." }, { status: 403 });
+
+  await env.DB.prepare("DELETE FROM groups WHERE id = ? AND home_id = ?").bind(groupId, homeId).run();
+  return json({ ok: true });
+}
+
+async function handleAddGroupMember(request, env, homeId, groupId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") return json({ error: "Only the home owner can manage groups." }, { status: 403 });
+
+  const body = await readJson(request);
+  if (!body) return json({ error: "Invalid request body." }, { status: 400 });
+
+  const username = String(body.username || "").trim();
+  const user = await env.DB.prepare("SELECT id, username FROM users WHERE username = ?")
+    .bind(username)
+    .first();
+  if (!user) return json({ error: "No user found with that username." }, { status: 404 });
+
+  const isMember = await requireHomeMember(env, homeId, user.id);
+  if (!isMember) return json({ error: "That user is not a member of this home." }, { status: 400 });
+
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)"
+  )
+    .bind(groupId, user.id)
+    .run();
+
+  return json({ member: { id: user.id, username: user.username } }, { status: 201 });
+}
+
+async function handleRemoveGroupMember(request, env, homeId, groupId) {
+  const auth = await requireAuth(request, env);
+  if (auth.error) return auth.error;
+
+  const role = await requireHomeMember(env, homeId, auth.user.id);
+  if (role !== "owner") return json({ error: "Only the home owner can manage groups." }, { status: 403 });
+
+  const url = new URL(request.url);
+  const userId = url.searchParams.get("userId");
+  if (!userId) return json({ error: "userId is required." }, { status: 400 });
+
+  await env.DB.prepare("DELETE FROM group_members WHERE group_id = ? AND user_id = ?")
+    .bind(groupId, userId)
     .run();
 
   return json({ ok: true });
@@ -534,10 +779,30 @@ async function routeApi(request, env) {
         if (method === "GET") return handleListChores(request, env, homeId);
         if (method === "POST") return handleCreateChore(request, env, homeId);
       }
+      if (parts[4] === "randomize" && parts.length === 5 && method === "POST") {
+        return handleRandomizeAssignment(request, env, homeId);
+      }
       const choreId = parts[4];
       if (choreId && parts.length === 5) {
         if (method === "PATCH") return handleUpdateChore(request, env, homeId, choreId);
         if (method === "DELETE") return handleDeleteChore(request, env, homeId, choreId);
+      }
+    }
+    if (homeId && parts[3] === "activity" && parts.length === 4 && method === "GET") {
+      return handleListActivity(request, env, homeId);
+    }
+    if (homeId && parts[3] === "groups") {
+      if (parts.length === 4) {
+        if (method === "GET") return handleListGroups(request, env, homeId);
+        if (method === "POST") return handleCreateGroup(request, env, homeId);
+      }
+      const groupId = parts[4];
+      if (groupId && parts.length === 5 && method === "DELETE") {
+        return handleDeleteGroup(request, env, homeId, groupId);
+      }
+      if (groupId && parts[5] === "members" && parts.length === 6) {
+        if (method === "POST") return handleAddGroupMember(request, env, homeId, groupId);
+        if (method === "DELETE") return handleRemoveGroupMember(request, env, homeId, groupId);
       }
     }
   }

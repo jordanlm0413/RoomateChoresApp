@@ -36,11 +36,39 @@ CREATE TABLE IF NOT EXISTS chores (
   title TEXT NOT NULL,
   assignee TEXT NOT NULL,
   room TEXT NOT NULL,
+  category TEXT,
+  recurrence TEXT NOT NULL DEFAULT 'none',
   due_date TEXT,
   done INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS groups (
+  id TEXT PRIMARY KEY,
+  home_id TEXT NOT NULL REFERENCES homes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT PRIMARY KEY,
+  home_id TEXT NOT NULL REFERENCES homes(id) ON DELETE CASCADE,
+  actor_username TEXT NOT NULL,
+  action TEXT NOT NULL,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_home_members_user ON home_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_chores_home ON chores(home_id);
+CREATE INDEX IF NOT EXISTS idx_groups_home ON groups(home_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_home ON activity_log(home_id);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);

@@ -10,31 +10,29 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="bg-orb orb-a" aria-hidden="true"></div>
-  <div class="bg-orb orb-b" aria-hidden="true"></div>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <main class="shell">
-    <header class="topbar">
-      <div class="topbar-row">
-        <div>
-          <p class="kicker">Shared Living</p>
-          <h1>Roomie Rhythm</h1>
-          <p class="sub">A simple shared chore board for your home.</p>
-        </div>
-        <div class="user-bar">
-          <span id="current-username" class="username-pill"></span>
-          <button id="logout-btn" class="btn ghost" type="button">Log Out</button>
-        </div>
+  <header class="site-banner">
+    <div class="site-banner-row">
+      <p class="brand">Roomie Rhythm</p>
+      <div class="user-bar">
+        <span id="current-username" class="username-pill"></span>
+        <button id="theme-toggle" class="btn ghost" type="button" aria-pressed="false">Dark Mode</button>
+        <button id="logout-btn" class="btn ghost" type="button">Log Out</button>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <nav class="main-tabs" aria-label="Main sections">
-      <button type="button" class="main-tab active" data-tab="home">Home</button>
-      <button type="button" class="main-tab" data-tab="calendar">Calendar</button>
-      <button type="button" class="main-tab settings-tab" data-tab="settings">Settings</button>
-    </nav>
+  <nav class="main-tabs" role="tablist" aria-label="Main sections">
+    <button type="button" class="main-tab active" id="tab-home" role="tab" aria-selected="true" aria-controls="panel-home" data-tab="home">Home</button>
+    <button type="button" class="main-tab" id="tab-calendar" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-calendar" data-tab="calendar">Calendar</button>
+    <button type="button" class="main-tab settings-tab" id="tab-settings" role="tab" aria-selected="false" tabindex="-1" aria-controls="panel-settings" data-tab="settings">Settings</button>
+  </nav>
 
-    <div data-tab-panel="home">
+  <main id="main-content" class="shell" tabindex="-1">
+    <div id="panel-home" role="tabpanel" aria-labelledby="tab-home" data-tab-panel="home">
+      <p id="reminder-banner" class="reminder-banner" role="status" hidden></p>
+
       <section class="panel panel-homes" aria-label="Homes">
         <div class="list-head">
           <h2>Your Homes</h2>
@@ -72,7 +70,8 @@
           <ul id="member-list" class="member-list"></ul>
         </div>
 
-        <p id="home-error" class="error" hidden></p>
+        <p id="home-error" class="error" role="alert" hidden></p>
+        <p id="home-success" class="success" role="status" hidden></p>
       </section>
 
       <section class="panel panel-form" aria-label="Add chore">
@@ -101,6 +100,19 @@
               Due Date
               <input id="dueDate" type="date" />
             </label>
+            <label>
+              Category <span class="hint">(optional)</span>
+              <input id="category" type="text" maxlength="40" placeholder="Cleaning" />
+            </label>
+            <label>
+              Repeats
+              <select id="recurrence">
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
           </div>
           <button type="submit" class="btn primary">Add</button>
         </form>
@@ -110,11 +122,14 @@
         <div class="list-head">
           <h2>Chores Due</h2>
           <div class="actions">
+            <label class="visually-hidden" for="chore-search">Search chores</label>
+            <input id="chore-search" type="search" placeholder="Search chores" />
             <select id="filter">
               <option value="all">All</option>
               <option value="open">Open</option>
               <option value="done">Done</option>
             </select>
+            <button id="randomize-btn" class="btn ghost" type="button">Randomize Assignments</button>
             <button id="clear-done" class="btn ghost" type="button">Clear Done</button>
           </div>
         </div>
@@ -122,9 +137,15 @@
         <ul id="chore-list" class="chore-list"></ul>
         <p id="empty-state" class="empty">No chores yet. Add your first one above.</p>
       </section>
+
+      <section class="panel panel-activity" aria-label="Recent activity">
+        <h2>Recent Activity</h2>
+        <ul id="activity-list" class="activity-list"></ul>
+        <p id="activity-empty" class="empty">No activity yet.</p>
+      </section>
     </div>
 
-    <div data-tab-panel="calendar" hidden>
+    <div id="panel-calendar" role="tabpanel" aria-labelledby="tab-calendar" data-tab-panel="calendar" hidden>
       <section class="panel panel-calendar" aria-label="Calendar">
         <div class="list-head">
           <h2 id="calendar-month-label">Calendar</h2>
@@ -144,14 +165,14 @@
       </section>
     </div>
 
-    <div data-tab-panel="settings" hidden>
+    <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" data-tab-panel="settings" hidden>
       <section class="panel panel-settings" aria-label="Settings">
-        <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-settings-tab="account">Account</button>
-          <button type="button" class="tab" data-settings-tab="home">Home</button>
+        <div class="tabs" role="tablist" aria-label="Settings sections">
+          <button type="button" class="tab active" id="settings-tab-account" role="tab" aria-selected="true" aria-controls="settings-panel-account" data-settings-tab="account">Account</button>
+          <button type="button" class="tab" id="settings-tab-home" role="tab" aria-selected="false" tabindex="-1" aria-controls="settings-panel-home" data-settings-tab="home">Home</button>
         </div>
 
-        <div data-settings-panel="account">
+        <div id="settings-panel-account" role="tabpanel" aria-labelledby="settings-tab-account" data-settings-panel="account">
           <form id="account-form" class="auth-form">
             <label>
               New username
@@ -167,11 +188,11 @@
             </label>
             <button type="submit" class="btn primary">Save Account Changes</button>
           </form>
-          <p id="account-error" class="error" hidden></p>
-          <p id="account-success" class="success" hidden></p>
+          <p id="account-error" class="error" role="alert" hidden></p>
+          <p id="account-success" class="success" role="status" hidden></p>
         </div>
 
-        <div data-settings-panel="home" hidden>
+        <div id="settings-panel-home" role="tabpanel" aria-labelledby="settings-tab-home" data-settings-panel="home" hidden>
           <form id="rename-home-form" class="inline-form">
             <label>
               Home name
@@ -186,8 +207,21 @@
             <button id="delete-home-btn" class="btn ghost danger" type="button">Delete Home</button>
           </div>
 
-          <p id="settings-home-error" class="error" hidden></p>
-          <p id="settings-home-success" class="success" hidden></p>
+          <p id="settings-home-error" class="error" role="alert" hidden></p>
+          <p id="settings-home-success" class="success" role="status" hidden></p>
+
+          <div class="groups-section">
+            <h3>Groups</h3>
+            <p class="hint">Split members into groups to randomize chores within a smaller set of roommates.</p>
+            <form id="create-group-form" class="inline-form">
+              <label>
+                New group name
+                <input id="new-group-name" type="text" maxlength="40" placeholder="Upstairs" />
+              </label>
+              <button type="submit" class="btn ghost">Create Group</button>
+            </form>
+            <ul id="group-list" class="group-list"></ul>
+          </div>
         </div>
       </section>
     </div>

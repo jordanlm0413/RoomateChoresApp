@@ -10,23 +10,25 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="bg-orb orb-a" aria-hidden="true"></div>
-  <div class="bg-orb orb-b" aria-hidden="true"></div>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <main class="shell auth-shell">
-    <header class="topbar">
-      <p class="kicker">Shared Living</p>
-      <h1>Roomie Rhythm</h1>
-      <p class="sub">Sign in to your account or create one to get started.</p>
-    </header>
+  <header class="site-banner">
+    <div class="site-banner-row">
+      <p class="brand">Roomie Rhythm</p>
+      <button id="theme-toggle" class="btn ghost" type="button" aria-pressed="false">Dark Mode</button>
+    </div>
+  </header>
+
+  <main id="main-content" class="shell auth-shell" tabindex="-1">
+    <p class="sub auth-intro">Sign in to your account or create one to get started.</p>
 
     <section class="panel auth-panel" aria-label="Sign in or create account">
-      <div class="tabs" role="tablist">
-        <button type="button" class="tab active" id="tab-login" role="tab" aria-selected="true">Sign In</button>
-        <button type="button" class="tab" id="tab-signup" role="tab" aria-selected="false">Create Account</button>
+      <div class="tabs" role="tablist" aria-label="Account access">
+        <button type="button" class="tab active" id="tab-login" role="tab" aria-selected="true" aria-controls="login-form" data-auth-tab="login">Sign In</button>
+        <button type="button" class="tab" id="tab-signup" role="tab" aria-selected="false" tabindex="-1" aria-controls="signup-form" data-auth-tab="signup">Create Account</button>
       </div>
 
-      <form id="login-form" class="auth-form">
+      <form id="login-form" class="auth-form" role="tabpanel" aria-labelledby="tab-login">
         <label>
           Username
           <input id="login-username" type="text" autocomplete="username" required />
@@ -38,7 +40,7 @@
         <button type="submit" class="btn primary">Sign In</button>
       </form>
 
-      <form id="signup-form" class="auth-form" hidden>
+      <form id="signup-form" class="auth-form" role="tabpanel" aria-labelledby="tab-signup" hidden>
         <label>
           Username
           <input id="signup-username" type="text" minlength="3" maxlength="24" autocomplete="username" required />
@@ -51,7 +53,7 @@
         <button type="submit" class="btn primary">Create Account</button>
       </form>
 
-      <p id="auth-error" class="error" hidden></p>
+      <p id="auth-error" class="error" role="alert" hidden></p>
     </section>
   </main>
 

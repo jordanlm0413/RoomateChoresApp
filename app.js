@@ -1,5 +1,6 @@
 const currentUsernameEl = document.getElementById("current-username");
 const logoutBtn = document.getElementById("logout-btn");
+const themeToggleBtn = document.getElementById("theme-toggle");
 
 const homeSelect = document.getElementById("home-select");
 const createHomeForm = document.getElementById("create-home-form");
@@ -12,16 +13,24 @@ const inviteForm = document.getElementById("invite-form");
 const inviteUsernameInput = document.getElementById("invite-username");
 const memberListEl = document.getElementById("member-list");
 const homeErrorEl = document.getElementById("home-error");
+const homeSuccessEl = document.getElementById("home-success");
 
 const form = document.getElementById("chore-form");
 const titleInput = document.getElementById("title");
 const assigneeInput = document.getElementById("assignee");
 const roomInput = document.getElementById("room");
 const dueDateInput = document.getElementById("dueDate");
+const categoryInput = document.getElementById("category");
+const recurrenceInput = document.getElementById("recurrence");
 const listEl = document.getElementById("chore-list");
 const emptyState = document.getElementById("empty-state");
 const filterEl = document.getElementById("filter");
 const clearDoneBtn = document.getElementById("clear-done");
+const choreSearchInput = document.getElementById("chore-search");
+const randomizeBtn = document.getElementById("randomize-btn");
+const reminderBanner = document.getElementById("reminder-banner");
+const activityListEl = document.getElementById("activity-list");
+const activityEmptyEl = document.getElementById("activity-empty");
 
 const mainTabs = document.querySelectorAll(".main-tab");
 const tabPanels = document.querySelectorAll("[data-tab-panel]");
@@ -51,6 +60,9 @@ const leaveHomeBtn = document.getElementById("leave-home-btn");
 const deleteHomeBtn = document.getElementById("delete-home-btn");
 const settingsHomeErrorEl = document.getElementById("settings-home-error");
 const settingsHomeSuccessEl = document.getElementById("settings-home-success");
+const createGroupForm = document.getElementById("create-group-form");
+const newGroupNameInput = document.getElementById("new-group-name");
+const groupListEl = document.getElementById("group-list");
 
 let calendarCursor = new Date();
 calendarCursor.setDate(1);
@@ -77,13 +89,22 @@ async function api(path, options = {}) {
 }
 
 function showHomeError(message) {
+  homeSuccessEl.hidden = true;
   homeErrorEl.textContent = message;
   homeErrorEl.hidden = false;
+}
+
+function showHomeSuccess(message) {
+  homeErrorEl.hidden = true;
+  homeSuccessEl.textContent = message;
+  homeSuccessEl.hidden = false;
 }
 
 function clearHomeError() {
   homeErrorEl.hidden = true;
   homeErrorEl.textContent = "";
+  homeSuccessEl.hidden = true;
+  homeSuccessEl.textContent = "";
 }
 
 async function init() {
@@ -152,7 +173,7 @@ async function refreshSelectedHome() {
   inviteCodeDisplay.textContent = home.inviteCode;
 
   renderHomeSettingsPanel();
-  await Promise.all([loadMembers(home.id), loadChores(home.id)]);
+  await Promise.all([loadMembers(home.id), loadChores(home.id), loadActivity(home.id), loadGroups(home.id)]);
 }
 
 async function loadMembers(homeId) {
@@ -185,9 +206,96 @@ async function loadChores(homeId) {
     chores = data.chores;
     render();
     renderCalendar();
+    renderReminderBanner();
   } catch (err) {
     showHomeError(err.message);
   }
+}
+
+function renderReminderBanner() {
+  if (!reminderBanner) return;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const open = chores.filter((c) => !c.done && c.dueDate && c.dueDate !== "No due date");
+  const overdue = open.filter((c) => c.dueDate < todayStr);
+  const dueToday = open.filter((c) => c.dueDate === todayStr);
+
+  if (overdue.length === 0 && dueToday.length === 0) {
+    reminderBanner.hidden = true;
+    return;
+  }
+
+  const parts = [];
+  if (overdue.length) parts.push(`${overdue.length} chore(s) overdue`);
+  if (dueToday.length) parts.push(`${dueToday.length} chore(s) due today`);
+  reminderBanner.textContent = parts.join(" · ");
+  reminderBanner.hidden = false;
+  reminderBanner.classList.toggle("reminder-banner-urgent", overdue.length > 0);
+}
+
+async function loadActivity(homeId) {
+  try {
+    const { activity } = await api(`/api/homes/${homeId}/activity`);
+    renderActivity(activity);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+}
+
+function renderActivity(activity) {
+  if (!activityListEl) return;
+  activityListEl.innerHTML = "";
+  activity.forEach((entry) => {
+    const li = document.createElement("li");
+    const when = new Date(entry.createdAt.replace(" ", "T") + "Z").toLocaleString();
+    li.textContent = `${entry.actor} ${entry.action}${entry.detail ? ` "${entry.detail}"` : ""} · ${when}`;
+    activityListEl.appendChild(li);
+  });
+  activityEmptyEl.hidden = activity.length !== 0;
+}
+
+async function loadGroups(homeId) {
+  try {
+    const { groups } = await api(`/api/homes/${homeId}/groups`);
+    renderGroups(groups);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+}
+
+function renderGroups(groups) {
+  if (!groupListEl) return;
+  const home = currentHome();
+  const isOwner = home && home.role === "owner";
+  groupListEl.innerHTML = "";
+
+  groups.forEach((group) => {
+    const li = document.createElement("li");
+    li.className = "group-item";
+    const memberChips = group.members
+      .map(
+        (m) => `<span class="chip">${escapeHtml(m.username)}${isOwner ? ` <button type="button" data-action="remove-group-member" data-group-id="${group.id}" data-user-id="${m.id}" aria-label="Remove ${escapeHtml(m.username)} from ${escapeHtml(group.name)}">&times;</button>` : ""}</span>`
+      )
+      .join(" ");
+    li.innerHTML = `
+      <div class="group-item-head">
+        <strong>${escapeHtml(group.name)}</strong>
+        ${isOwner ? `<button type="button" class="danger" data-action="delete-group" data-group-id="${group.id}">Delete</button>` : ""}
+      </div>
+      <div class="chip-row">${memberChips || '<span class="hint">No members yet.</span>'}</div>
+      ${
+        isOwner
+          ? `<form class="inline-form" data-action="add-group-member" data-group-id="${group.id}">
+              <label>
+                Add member by username
+                <input type="text" maxlength="24" data-group-username-input required />
+              </label>
+              <button type="submit" class="btn ghost">Add</button>
+            </form>`
+          : ""
+      }
+    `;
+    groupListEl.appendChild(li);
+  });
 }
 
 createHomeForm.addEventListener("submit", async (event) => {
@@ -278,13 +386,21 @@ logoutBtn.addEventListener("click", async () => {
 });
 
 function filteredChores() {
+  let visible = chores;
   if (filterEl.value === "open") {
-    return chores.filter((c) => !c.done);
+    visible = visible.filter((c) => !c.done);
+  } else if (filterEl.value === "done") {
+    visible = visible.filter((c) => c.done);
   }
-  if (filterEl.value === "done") {
-    return chores.filter((c) => c.done);
+
+  const query = choreSearchInput.value.trim().toLowerCase();
+  if (query) {
+    visible = visible.filter((c) =>
+      [c.title, c.assignee, c.room, c.category].some((field) => field && field.toLowerCase().includes(query))
+    );
   }
-  return chores;
+
+  return visible;
 }
 
 function render() {
@@ -294,10 +410,13 @@ function render() {
   visible.forEach((chore) => {
     const li = document.createElement("li");
     li.className = `chore ${chore.done ? "done" : ""}`;
+    const metaParts = [chore.assignee, chore.room, chore.dueDate];
+    if (chore.category) metaParts.push(chore.category);
+    if (chore.recurrence && chore.recurrence !== "none") metaParts.push(`repeats ${chore.recurrence}`);
     li.innerHTML = `
       <div>
         <strong class="title">${escapeHtml(chore.title)}</strong>
-        <div class="meta">${escapeHtml(chore.assignee)} · ${escapeHtml(chore.room)} · ${escapeHtml(chore.dueDate)}</div>
+        <div class="meta">${metaParts.map(escapeHtml).join(" · ")}</div>
       </div>
       <div class="row-actions">
         <button type="button" data-action="toggle" data-id="${chore.id}">${chore.done ? "Undo" : "Done"}</button>
@@ -331,12 +450,16 @@ form.addEventListener("submit", async (event) => {
         title: titleInput.value.trim(),
         assignee: assigneeInput.value.trim(),
         room: roomInput.value,
-        dueDate: dueDateInput.value
+        dueDate: dueDateInput.value,
+        category: categoryInput.value.trim(),
+        recurrence: recurrenceInput.value
       })
     });
     form.reset();
     roomInput.value = "Kitchen";
+    recurrenceInput.value = "none";
     await loadChores(home.id);
+    await loadActivity(home.id);
   } catch (err) {
     showHomeError(err.message);
   }
@@ -362,12 +485,29 @@ listEl.addEventListener("click", async (event) => {
       await api(`/api/homes/${home.id}/chores/${id}`, { method: "DELETE" });
     }
     await loadChores(home.id);
+    await loadActivity(home.id);
   } catch (err) {
     showHomeError(err.message);
   }
 });
 
 filterEl.addEventListener("change", render);
+choreSearchInput.addEventListener("input", render);
+
+randomizeBtn.addEventListener("click", async () => {
+  const home = currentHome();
+  if (!home) return;
+
+  try {
+    const { count } = await api(`/api/homes/${home.id}/chores/randomize`, { method: "POST" });
+    await loadChores(home.id);
+    await loadActivity(home.id);
+    showHomeSuccess(`Randomized assignments for ${count} open chore(s).`);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+});
+
 clearDoneBtn.addEventListener("click", async () => {
   const home = currentHome();
   if (!home) return;
@@ -377,6 +517,7 @@ clearDoneBtn.addEventListener("click", async () => {
       doneChores.map((c) => api(`/api/homes/${home.id}/chores/${c.id}`, { method: "DELETE" }))
     );
     await loadChores(home.id);
+    await loadActivity(home.id);
   } catch (err) {
     showHomeError(err.message);
   }
@@ -384,15 +525,34 @@ clearDoneBtn.addEventListener("click", async () => {
 
 // --- Main tab navigation ---
 
-mainTabs.forEach((tabBtn) => {
-  tabBtn.addEventListener("click", () => {
-    const target = tabBtn.dataset.tab;
-    mainTabs.forEach((btn) => btn.classList.toggle("active", btn === tabBtn));
-    tabPanels.forEach((panel) => {
-      panel.hidden = panel.dataset.tabPanel !== target;
-    });
-    if (target === "calendar") renderCalendar();
-    if (target === "settings") renderHomeSettingsPanel();
+function activateMainTab(tabBtn) {
+  const target = tabBtn.dataset.tab;
+  mainTabs.forEach((btn) => {
+    const isActive = btn === tabBtn;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", String(isActive));
+    btn.tabIndex = isActive ? 0 : -1;
+  });
+  tabPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.tabPanel !== target;
+  });
+  if (target === "calendar") renderCalendar();
+  if (target === "settings") renderHomeSettingsPanel();
+}
+
+mainTabs.forEach((tabBtn, index) => {
+  tabBtn.addEventListener("click", () => activateMainTab(tabBtn));
+  tabBtn.addEventListener("keydown", (event) => {
+    let nextIndex = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % mainTabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + mainTabs.length) % mainTabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = mainTabs.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const next = mainTabs[nextIndex];
+    activateMainTab(next);
+    next.focus();
   });
 });
 
@@ -555,13 +715,32 @@ calendarTodayBtn.addEventListener("click", () => {
 
 // --- Settings: sub-tabs ---
 
-settingsTabs.forEach((tabBtn) => {
-  tabBtn.addEventListener("click", () => {
-    const target = tabBtn.dataset.settingsTab;
-    settingsTabs.forEach((btn) => btn.classList.toggle("active", btn === tabBtn));
-    settingsPanels.forEach((panel) => {
-      panel.hidden = panel.dataset.settingsPanel !== target;
-    });
+function activateSettingsTab(tabBtn) {
+  const target = tabBtn.dataset.settingsTab;
+  settingsTabs.forEach((btn) => {
+    const isActive = btn === tabBtn;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", String(isActive));
+    btn.tabIndex = isActive ? 0 : -1;
+  });
+  settingsPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.settingsPanel !== target;
+  });
+}
+
+settingsTabs.forEach((tabBtn, index) => {
+  tabBtn.addEventListener("click", () => activateSettingsTab(tabBtn));
+  tabBtn.addEventListener("keydown", (event) => {
+    let nextIndex = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % settingsTabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + settingsTabs.length) % settingsTabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = settingsTabs.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const next = settingsTabs[nextIndex];
+    activateSettingsTab(next);
+    next.focus();
   });
 });
 
@@ -687,5 +866,104 @@ deleteHomeBtn.addEventListener("click", async () => {
     showSettingsHomeError(err.message);
   }
 });
+
+// --- Groups ---
+
+createGroupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const home = currentHome();
+  const name = newGroupNameInput.value.trim();
+  if (!home || !name) return;
+
+  try {
+    await api(`/api/homes/${home.id}/groups`, { method: "POST", body: JSON.stringify({ name }) });
+    createGroupForm.reset();
+    await loadGroups(home.id);
+  } catch (err) {
+    showSettingsHomeError(err.message);
+  }
+});
+
+groupListEl.addEventListener("click", async (event) => {
+  const home = currentHome();
+  if (!home) return;
+
+  const deleteBtn = event.target.closest('[data-action="delete-group"]');
+  if (deleteBtn) {
+    if (!confirm("Delete this group?")) return;
+    try {
+      await api(`/api/homes/${home.id}/groups/${deleteBtn.dataset.groupId}`, { method: "DELETE" });
+      await loadGroups(home.id);
+    } catch (err) {
+      showSettingsHomeError(err.message);
+    }
+    return;
+  }
+
+  const removeMemberBtn = event.target.closest('[data-action="remove-group-member"]');
+  if (removeMemberBtn) {
+    try {
+      await api(
+        `/api/homes/${home.id}/groups/${removeMemberBtn.dataset.groupId}/members?userId=${encodeURIComponent(removeMemberBtn.dataset.userId)}`,
+        { method: "DELETE" }
+      );
+      await loadGroups(home.id);
+    } catch (err) {
+      showSettingsHomeError(err.message);
+    }
+  }
+});
+
+groupListEl.addEventListener("submit", async (event) => {
+  const form = event.target.closest('[data-action="add-group-member"]');
+  if (!form) return;
+  event.preventDefault();
+
+  const home = currentHome();
+  if (!home) return;
+
+  const usernameInput = form.querySelector("[data-group-username-input]");
+  const username = usernameInput.value.trim();
+  if (!username) return;
+
+  try {
+    await api(`/api/homes/${home.id}/groups/${form.dataset.groupId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ username })
+    });
+    await loadGroups(home.id);
+  } catch (err) {
+    showSettingsHomeError(err.message);
+  }
+});
+
+// --- Theme toggle ---
+
+const THEME_KEY = "roomie_rhythm_theme";
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  if (themeToggleBtn) {
+    const isDark = theme === "dark";
+    themeToggleBtn.setAttribute("aria-pressed", String(isDark));
+    themeToggleBtn.textContent = isDark ? "Light Mode" : "Dark Mode";
+  }
+}
+
+function initTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(stored || (prefersDark ? "dark" : "light"));
+}
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
+}
+
+initTheme();
 
 init();
