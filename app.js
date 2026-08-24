@@ -31,6 +31,9 @@ const calendarMonthLabel = document.getElementById("calendar-month-label");
 const calendarPrevBtn = document.getElementById("calendar-prev");
 const calendarNextBtn = document.getElementById("calendar-next");
 const calendarTodayBtn = document.getElementById("calendar-today");
+const calendarDayLabel = document.getElementById("calendar-day-label");
+const calendarDayList = document.getElementById("calendar-day-list");
+const calendarDayEmpty = document.getElementById("calendar-day-empty");
 
 const settingsTabs = document.querySelectorAll("[data-settings-tab]");
 const settingsPanels = document.querySelectorAll("[data-settings-panel]");
@@ -51,6 +54,7 @@ const settingsHomeSuccessEl = document.getElementById("settings-home-success");
 
 let calendarCursor = new Date();
 calendarCursor.setDate(1);
+let selectedCalendarDate = null;
 
 const SELECTED_HOME_KEY = "roomie_rhythm_selected_home";
 
@@ -435,6 +439,10 @@ function renderCalendar() {
     const cell = document.createElement("div");
     cell.className = "calendar-cell";
     if (dateStr === todayStr) cell.classList.add("calendar-cell-today");
+    if (dateStr === selectedCalendarDate) cell.classList.add("calendar-cell-selected");
+    cell.dataset.date = dateStr;
+    cell.tabIndex = 0;
+    cell.setAttribute("role", "button");
 
     const dayNumber = document.createElement("div");
     dayNumber.className = "calendar-day-number";
@@ -451,7 +459,82 @@ function renderCalendar() {
 
     calendarGrid.appendChild(cell);
   }
+
+  renderCalendarDayDetail(choresByDate);
 }
+
+function renderCalendarDayDetail(choresByDate) {
+  if (!calendarDayLabel) return;
+
+  if (!selectedCalendarDate) {
+    calendarDayLabel.textContent = "Select a day";
+    calendarDayList.innerHTML = "";
+    calendarDayEmpty.hidden = false;
+    calendarDayEmpty.textContent = "Click a day on the calendar to see its chores.";
+    return;
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+  const [y, m, d] = selectedCalendarDate.split("-").map(Number);
+  calendarDayLabel.textContent = dateFormatter.format(new Date(y, m - 1, d));
+
+  const dayChores = choresByDate[selectedCalendarDate] || [];
+  calendarDayList.innerHTML = "";
+  dayChores.forEach((chore) => {
+    const li = document.createElement("li");
+    li.className = `chore ${chore.done ? "done" : ""}`;
+    li.innerHTML = `
+      <div>
+        <strong class="title">${escapeHtml(chore.title)}</strong>
+        <div class="meta">${escapeHtml(chore.assignee)} · ${escapeHtml(chore.room)}</div>
+      </div>
+      <div class="row-actions">
+        <button type="button" data-action="toggle" data-id="${chore.id}">${chore.done ? "Undo" : "Done"}</button>
+        <button type="button" class="danger" data-action="delete" data-id="${chore.id}">Delete</button>
+      </div>
+    `;
+    calendarDayList.appendChild(li);
+  });
+
+  calendarDayEmpty.hidden = dayChores.length !== 0;
+  calendarDayEmpty.textContent = "No chores due this day.";
+}
+
+calendarGrid.addEventListener("click", (event) => {
+  const cell = event.target.closest("[data-date]");
+  if (!cell) return;
+  selectedCalendarDate = cell.dataset.date;
+  renderCalendar();
+});
+
+calendarDayList.addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  const id = button.dataset.id;
+  const home = currentHome();
+  if (!id || !home) return;
+
+  try {
+    if (button.dataset.action === "toggle") {
+      const chore = chores.find((c) => c.id === id);
+      await api(`/api/homes/${home.id}/chores/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ done: !chore.done })
+      });
+    }
+    if (button.dataset.action === "delete") {
+      await api(`/api/homes/${home.id}/chores/${id}`, { method: "DELETE" });
+    }
+    await loadChores(home.id);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+});
 
 calendarPrevBtn.addEventListener("click", () => {
   calendarCursor.setMonth(calendarCursor.getMonth() - 1);
@@ -466,6 +549,7 @@ calendarNextBtn.addEventListener("click", () => {
 calendarTodayBtn.addEventListener("click", () => {
   calendarCursor = new Date();
   calendarCursor.setDate(1);
+  selectedCalendarDate = new Date().toISOString().slice(0, 10);
   renderCalendar();
 });
 

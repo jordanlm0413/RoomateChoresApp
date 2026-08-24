@@ -28,53 +28,53 @@
       </div>
     </header>
 
-    <section class="panel panel-homes" aria-label="Homes">
-      <div class="list-head">
-        <h2>Your Homes</h2>
-        <div class="actions">
-          <select id="home-select" aria-label="Select home"></select>
-        </div>
-      </div>
-
-      <div class="home-forms">
-        <form id="create-home-form" class="inline-form">
-          <label>
-            New home name
-            <input id="new-home-name" type="text" maxlength="60" placeholder="Maple Street House" required />
-          </label>
-          <button type="submit" class="btn primary">Create Home</button>
-        </form>
-        <form id="join-home-form" class="inline-form">
-          <label>
-            Invite code
-            <input id="join-home-code" type="text" maxlength="16" placeholder="A1B2C3" required />
-          </label>
-          <button type="submit" class="btn ghost">Join Home</button>
-        </form>
-      </div>
-
-      <div id="home-details" class="home-details" hidden>
-        <p class="meta">Invite code: <strong id="invite-code-display"></strong> <span class="hint">(share this so others can join)</span></p>
-        <form id="invite-form" class="inline-form">
-          <label>
-            Invite by username
-            <input id="invite-username" type="text" maxlength="24" placeholder="roommate" />
-          </label>
-          <button type="submit" class="btn ghost">Invite</button>
-        </form>
-        <ul id="member-list" class="member-list"></ul>
-      </div>
-
-      <p id="home-error" class="error" hidden></p>
-    </section>
-
     <nav class="main-tabs" aria-label="Main sections">
-      <button type="button" class="main-tab active" data-tab="chores">Chores</button>
+      <button type="button" class="main-tab active" data-tab="home">Home</button>
       <button type="button" class="main-tab" data-tab="calendar">Calendar</button>
-      <button type="button" class="main-tab" data-tab="settings">Settings</button>
+      <button type="button" class="main-tab settings-tab" data-tab="settings">Settings</button>
     </nav>
 
-    <div data-tab-panel="chores">
+    <div data-tab-panel="home">
+      <section class="panel panel-homes" aria-label="Homes">
+        <div class="list-head">
+          <h2>Your Homes</h2>
+          <div class="actions">
+            <select id="home-select" aria-label="Select home"></select>
+          </div>
+        </div>
+
+        <div class="home-forms">
+          <form id="create-home-form" class="inline-form">
+            <label>
+              New home name
+              <input id="new-home-name" type="text" maxlength="60" placeholder="Maple Street House" required />
+            </label>
+            <button type="submit" class="btn primary">Create Home</button>
+          </form>
+          <form id="join-home-form" class="inline-form">
+            <label>
+              Invite code
+              <input id="join-home-code" type="text" maxlength="16" placeholder="A1B2C3" required />
+            </label>
+            <button type="submit" class="btn ghost">Join Home</button>
+          </form>
+        </div>
+
+        <div id="home-details" class="home-details" hidden>
+          <p class="meta">Invite code: <strong id="invite-code-display"></strong> <span class="hint">(share this so others can join)</span></p>
+          <form id="invite-form" class="inline-form">
+            <label>
+              Invite by username
+              <input id="invite-username" type="text" maxlength="24" placeholder="roommate" />
+            </label>
+            <button type="submit" class="btn ghost">Invite</button>
+          </form>
+          <ul id="member-list" class="member-list"></ul>
+        </div>
+
+        <p id="home-error" class="error" hidden></p>
+      </section>
+
       <section class="panel panel-form" aria-label="Add chore">
         <h2>Add Chore</h2>
         <form id="chore-form">
@@ -108,7 +108,7 @@
 
       <section class="panel panel-list" aria-label="Chore list">
         <div class="list-head">
-          <h2>Chores</h2>
+          <h2>Chores Due</h2>
           <div class="actions">
             <select id="filter">
               <option value="all">All</option>
@@ -135,6 +135,12 @@
           </div>
         </div>
         <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+
+      <section class="panel panel-day-detail" aria-label="Selected day">
+        <h2 id="calendar-day-label">Select a day</h2>
+        <ul id="calendar-day-list" class="chore-list"></ul>
+        <p id="calendar-day-empty" class="empty">No chores due this day.</p>
       </section>
     </div>
 

@@ -80,6 +80,10 @@ body {
   border-color: transparent;
 }
 
+.main-tab.settings-tab {
+  margin-left: auto;
+}
+
 [data-tab-panel] {
   display: grid;
   gap: 1rem;
@@ -392,11 +396,23 @@ select {
   display: grid;
   gap: 0.2rem;
   align-content: start;
+  cursor: pointer;
+  transition: box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.calendar-cell:not(.calendar-cell-blank):hover {
+  border-color: var(--brand-2);
+}
+
+.calendar-cell-selected {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand) inset;
 }
 
 .calendar-cell-blank {
   background: transparent;
   border-color: transparent;
+  cursor: default;
 }
 
 .calendar-cell-today {
