@@ -64,6 +64,29 @@ body {
   letter-spacing: -0.02em;
 }
 
+.topbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.username-pill {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  background: #fff;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+
 .kicker {
   margin: 0;
   font-family: "IBM Plex Mono", monospace;
@@ -206,6 +229,108 @@ select {
   text-align: center;
 }
 
+/* Auth page */
+.auth-shell {
+  max-width: 460px;
+}
+
+.auth-panel .tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.tab {
+  flex: 1;
+  border: 1px solid var(--stroke);
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tab.active {
+  background: linear-gradient(120deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border-color: transparent;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-form .btn {
+  margin-top: 0.25rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.error {
+  margin-top: 0.9rem;
+  color: var(--warn);
+  font-size: 0.9rem;
+}
+
+/* Homes panel */
+.panel-homes .home-forms {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.9rem;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.inline-form label {
+  flex: 1;
+  min-width: 140px;
+}
+
+.home-details {
+  margin-top: 1rem;
+  border-top: 1px solid var(--stroke);
+  padding-top: 1rem;
+}
+
+.member-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.member-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+}
+
+.role-badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  color: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.4rem;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -225,5 +350,9 @@ select {
   .list-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .panel-homes .home-forms {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in · Roomie Rhythm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-a" aria-hidden="true"></div>
+  <div class="bg-orb orb-b" aria-hidden="true"></div>
+
+  <main class="shell auth-shell">
+    <header class="topbar">
+      <p class="kicker">Shared Living</p>
+      <h1>Roomie Rhythm</h1>
+      <p class="sub">Sign in to your account or create one to get started.</p>
+    </header>
+
+    <section class="panel auth-panel" aria-label="Sign in or create account">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" id="tab-login" role="tab" aria-selected="true">Sign In</button>
+        <button type="button" class="tab" id="tab-signup" role="tab" aria-selected="false">Create Account</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <label>
+          Username
+          <input id="login-username" type="text" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input id="login-password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit" class="btn primary">Sign In</button>
+      </form>
+
+      <form id="signup-form" class="auth-form" hidden>
+        <label>
+          Username
+          <input id="signup-username" type="text" minlength="3" maxlength="24" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input id="signup-password" type="password" minlength="8" autocomplete="new-password" required />
+        </label>
+        <p class="hint">3-24 characters for username, at least 8 characters for password.</p>
+        <button type="submit" class="btn primary">Create Account</button>
+      </form>
+
+      <p id="auth-error" class="error" hidden></p>
+    </section>
+  </main>
+
+  <script src="auth.js"></script>
+</body>
+</html>

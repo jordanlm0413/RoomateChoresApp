@@ -15,10 +15,58 @@
 
   <main class="shell">
     <header class="topbar">
-      <p class="kicker">Shared Living</p>
-      <h1>Roomie Rhythm</h1>
-      <p class="sub">A simple web chore board you can run anywhere.</p>
+      <div class="topbar-row">
+        <div>
+          <p class="kicker">Shared Living</p>
+          <h1>Roomie Rhythm</h1>
+          <p class="sub">A simple shared chore board for your home.</p>
+        </div>
+        <div class="user-bar">
+          <span id="current-username" class="username-pill"></span>
+          <button id="logout-btn" class="btn ghost" type="button">Log Out</button>
+        </div>
+      </div>
     </header>
+
+    <section class="panel panel-homes" aria-label="Homes">
+      <div class="list-head">
+        <h2>Your Homes</h2>
+        <div class="actions">
+          <select id="home-select" aria-label="Select home"></select>
+        </div>
+      </div>
+
+      <div class="home-forms">
+        <form id="create-home-form" class="inline-form">
+          <label>
+            New home name
+            <input id="new-home-name" type="text" maxlength="60" placeholder="Maple Street House" required />
+          </label>
+          <button type="submit" class="btn primary">Create Home</button>
+        </form>
+        <form id="join-home-form" class="inline-form">
+          <label>
+            Invite code
+            <input id="join-home-code" type="text" maxlength="16" placeholder="A1B2C3" required />
+          </label>
+          <button type="submit" class="btn ghost">Join Home</button>
+        </form>
+      </div>
+
+      <div id="home-details" class="home-details" hidden>
+        <p class="meta">Invite code: <strong id="invite-code-display"></strong> <span class="hint">(share this so others can join)</span></p>
+        <form id="invite-form" class="inline-form">
+          <label>
+            Invite by username
+            <input id="invite-username" type="text" maxlength="24" placeholder="roommate" />
+          </label>
+          <button type="submit" class="btn ghost">Invite</button>
+        </form>
+        <ul id="member-list" class="member-list"></ul>
+      </div>
+
+      <p id="home-error" class="error" hidden></p>
+    </section>
 
     <section class="panel panel-form" aria-label="Add chore">
       <h2>Add Chore</h2>
