@@ -4,10 +4,15 @@ const { v4: uuidv4 } = require('uuid');
 const bcryptjs = require('bcryptjs');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Health endpoint for cloud load balancers.
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ ok: true });
+});
 
 // In-memory database
 const db = {

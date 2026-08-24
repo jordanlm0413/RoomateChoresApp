@@ -2,18 +2,33 @@
 
 Roommate chore planning app built with Flutter.
 
-## Codemagic iOS build
+## Cloud Web Deployment
 
-This repository includes `codemagic.yaml` for a signed iOS release build.
+This project is now streamlined for Flutter Web hosting.
 
-Before starting the workflow in Codemagic:
+### 1. Build the Flutter web app
 
-1. Connect this repository to Codemagic.
-2. Create or select the App Store Connect API integration.
-3. Add the iOS signing certificate and provisioning profile for `com.roomierhythm.app`.
-4. Start the `ios-release` workflow.
+From the project root:
 
-The workflow builds an IPA and submits it to TestFlight. Apple Developer and App Store Connect access are still required.
+```bash
+flutter build web --release
+```
+
+### 2. Deploy the web app to Firebase Hosting
+
+From the project root:
+
+```bash
+firebase login
+firebase init hosting
+firebase deploy --only hosting
+```
+
+`firebase.json` is included and configured to serve `build/web` with SPA rewrites.
+
+### Current functionality behavior
+
+The app continues to preserve current functionality as-is. Data handling in `lib/api_service.dart` remains local-first (via app storage), so behavior is unchanged after deploying to the cloud-hosted web page.
 
 ## Getting Started
 
