@@ -9,4 +9,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "roomie-rhythm-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "31e3332c-4cb3-434f-8b57-9d1b5c1a8f2b"
