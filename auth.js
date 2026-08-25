@@ -43,11 +43,20 @@ tabSignup.addEventListener("click", () => setActiveTab("signup"));
 async function checkExistingSession() {
   try {
     const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+    if (res.status === 401) return;
     if (res.ok) {
       window.location.href = "index.html";
     }
   } catch {
     // ignore network errors on initial check
+  }
+}
+
+async function readJsonResponse(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
   }
 }
 
@@ -64,14 +73,14 @@ loginForm.addEventListener("submit", async (event) => {
       credentials: "same-origin",
       body: JSON.stringify({ username, password })
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok) {
       showError(data.error || "Could not sign in.");
       return;
     }
     window.location.href = "index.html";
   } catch {
-    showError("Network error. Please try again.");
+    showError("Authentication service is unavailable. Please try again in a moment.");
   }
 });
 
@@ -97,7 +106,7 @@ signupForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ username, password })
     });
 
-    const data = await res.json();
+    const data = await readJsonResponse(res);
 
     if (!res.ok) {
       showError(data.error || "Could not create account.");
@@ -106,7 +115,7 @@ signupForm.addEventListener("submit", async (event) => {
 
     window.location.href = "index.html";
   } catch {
-    showError("Network error. Please try again.");
+    showError("Authentication service is unavailable. Please try again in a moment.");
   }
 });
 
