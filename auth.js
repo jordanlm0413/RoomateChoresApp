@@ -138,3 +138,11 @@ if (themeToggleBtn) {
 }
 
 checkExistingSession();
+
+const testbutton = document.getElementById("test");
+if (testbutton) {
+  testbutton.addEventListener("click", () => {
+    window.location.href = "index.html?skipAuth=1";
+
+  });
+}

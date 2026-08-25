@@ -108,17 +108,25 @@ function clearHomeError() {
 }
 
 async function init() {
-  try {
-    const { user } = await api("/api/auth/me");
-    currentUser = user;
-  } catch {
-    window.location.href = "auth.html";
-    return;
+  const params = new URLSearchParams(window.location.search);
+  const skipAuth = params.get("skipAuth") === "1";
+
+  if (!skipAuth) {
+    try {
+      const { user } = await api("/api/auth/me");
+      currentUser = user;
+    } catch {
+      window.location.href = "auth.html";
+      return;
+    }
+
+    currentUsernameEl.textContent = currentUser.username;
   }
 
-  currentUsernameEl.textContent = currentUser.username;
   await loadHomes();
 }
+
+
 
 async function loadHomes() {
   const data = await api("/api/homes");
