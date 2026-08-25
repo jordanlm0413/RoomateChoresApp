@@ -145,6 +145,57 @@
         <p id="empty-state" class="empty">No chores yet. Add your first one above.</p>
       </section>
 
+      <dialog id="edit-chore-dialog" class="chore-dialog" aria-labelledby="edit-chore-title">
+        <form id="edit-chore-form">
+          <div class="list-head">
+            <h2 id="edit-chore-title">Edit Chore</h2>
+            <button id="edit-chore-cancel" class="btn ghost" type="button">Cancel</button>
+          </div>
+          <div class="grid">
+            <label>
+              Chore
+              <input id="edit-title" type="text" maxlength="80" required />
+            </label>
+            <label>
+              Assignee
+              <select id="edit-assignee" required></select>
+            </label>
+            <label>
+              Room
+              <select id="edit-room">
+                <option>Kitchen</option>
+                <option>Living Room</option>
+                <option>Bathroom</option>
+                <option>Bedroom</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>
+              Due Date
+              <input id="edit-due-date" type="date" />
+            </label>
+            <label>
+              Category <span class="hint">(optional)</span>
+              <input id="edit-category" type="text" maxlength="40" />
+            </label>
+            <label>
+              Repeats
+              <select id="edit-recurrence">
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+            <label id="edit-repeat-end-date-field" hidden>
+              Repeat ends
+              <input id="edit-repeat-end-date" type="date" />
+            </label>
+          </div>
+          <button type="submit" class="btn primary">Save Changes</button>
+        </form>
+      </dialog>
+
       <section class="panel panel-activity" aria-label="Recent activity">
         <h2>Recent Activity</h2>
         <ul id="activity-list" class="activity-list"></ul>

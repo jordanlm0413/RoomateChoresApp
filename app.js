@@ -33,6 +33,17 @@ const randomizeBtn = document.getElementById("randomize-btn");
 const reminderBanner = document.getElementById("reminder-banner");
 const activityListEl = document.getElementById("activity-list");
 const activityEmptyEl = document.getElementById("activity-empty");
+const editChoreDialog = document.getElementById("edit-chore-dialog");
+const editChoreForm = document.getElementById("edit-chore-form");
+const editChoreCancelBtn = document.getElementById("edit-chore-cancel");
+const editTitleInput = document.getElementById("edit-title");
+const editAssigneeInput = document.getElementById("edit-assignee");
+const editRoomInput = document.getElementById("edit-room");
+const editDueDateInput = document.getElementById("edit-due-date");
+const editCategoryInput = document.getElementById("edit-category");
+const editRecurrenceInput = document.getElementById("edit-recurrence");
+const editRepeatEndDateInput = document.getElementById("edit-repeat-end-date");
+const editRepeatEndDateField = document.getElementById("edit-repeat-end-date-field");
 const trackerRangeEl = document.getElementById("tracker-range");
 const trackerPercentEl = document.getElementById("tracker-percent");
 const trackerCountEl = document.getElementById("tracker-count");
@@ -85,6 +96,7 @@ let homes = [];
 let selectedHomeId = localStorage.getItem(SELECTED_HOME_KEY) || null;
 let chores = [];
 let currentHomeMembers = [];
+let currentGroups = [];
 
 function currentUserNameLabel(user = currentUser) {
   if (!user) return "";
@@ -133,6 +145,46 @@ function memberSelectOptions(members, placeholder = "Select a roommate") {
     options.push(`<option value="${escapeHtml(member.username)}">${escapeHtml(memberSelectOptionText(member))}</option>`);
   });
   return options.join("");
+}
+
+function groupAssigneeValue(group) {
+  return `group:${group.id}`;
+}
+
+function groupAssigneeLabel(group) {
+  const names = group.members.map(memberSelectOptionText).join(", ");
+  return `Group: ${group.name}${names ? ` (${names})` : ""}`;
+}
+
+function assigneeLabel(assignee) {
+  const group = currentGroups.find((item) => groupAssigneeValue(item) === assignee);
+  return group ? `Group: ${group.name}` : assignee;
+}
+
+function populateAssigneeOptions(select, selectedValue = select.value) {
+  const options = ['<option value="">Select an assignee</option>'];
+  if (currentHomeMembers.length) {
+    options.push('<optgroup label="Roommates">');
+    currentHomeMembers.forEach((member) => {
+      options.push(`<option value="${escapeHtml(member.username)}">${escapeHtml(memberSelectOptionText(member))}</option>`);
+    });
+    options.push("</optgroup>");
+  }
+  if (currentGroups.length) {
+    options.push('<optgroup label="Groups">');
+    currentGroups.forEach((group) => {
+      options.push(`<option value="${escapeHtml(groupAssigneeValue(group))}">${escapeHtml(groupAssigneeLabel(group))}</option>`);
+    });
+    options.push("</optgroup>");
+  }
+
+  select.innerHTML = options.join("");
+  select.value = selectedValue;
+}
+
+function updateAssigneeOptions() {
+  if (!assigneeInput) return;
+  populateAssigneeOptions(assigneeInput);
 }
 
 async function api(path, options = {}) {
@@ -191,8 +243,17 @@ function updateRepeatEndDateVisibility() {
   if (!repeats) repeatEndDateInput.value = "";
 }
 
+function updateEditRepeatEndDateVisibility() {
+  const repeats = editRecurrenceInput.value !== "none";
+  editRepeatEndDateField.hidden = !repeats;
+  editRepeatEndDateInput.disabled = !repeats;
+  if (!repeats) editRepeatEndDateInput.value = "";
+}
+
 recurrenceInput.addEventListener("change", updateRepeatEndDateVisibility);
+editRecurrenceInput.addEventListener("change", updateEditRepeatEndDateVisibility);
 updateRepeatEndDateVisibility();
+updateEditRepeatEndDateVisibility();
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -286,10 +347,6 @@ function renderMembers(members) {
   currentHomeMembers = members;
   memberListEl.innerHTML = "";
 
-  const assigneeOptions = [
-    '<option value="">Select a roommate</option>'
-  ];
-
   members.forEach((member) => {
     const li = document.createElement("li");
     const isOwner = member.role === "owner";
@@ -303,16 +360,8 @@ function renderMembers(members) {
     `;
     memberListEl.appendChild(li);
 
-    const optionText = memberSelectOptionText(member);
-    assigneeOptions.push(`<option value="${escapeHtml(member.username)}">${escapeHtml(optionText)}</option>`);
   });
-
-  if (assigneeInput) {
-    assigneeInput.innerHTML = assigneeOptions.join("");
-    if (!members.length) {
-      assigneeInput.innerHTML = '<option value="">No roommates yet</option>';
-    }
-  }
+  updateAssigneeOptions();
 }
 
 async function loadChores(homeId) {
@@ -380,6 +429,7 @@ async function loadGroups(homeId) {
 
 function renderGroups(groups) {
   if (!groupListEl) return;
+  currentGroups = groups;
   const home = currentHome();
   const isOwner = home && home.role === "owner";
   groupListEl.innerHTML = "";
@@ -414,6 +464,9 @@ function renderGroups(groups) {
     `;
     groupListEl.appendChild(li);
   });
+
+  updateAssigneeOptions();
+  render();
 }
 
 function membersForGroupOptions(group, home) {
@@ -533,7 +586,7 @@ function render() {
   visible.forEach((chore) => {
     const li = document.createElement("li");
     li.className = `chore ${chore.done ? "done" : ""}`;
-    const metaParts = [chore.assignee, chore.room, chore.dueDate];
+    const metaParts = [assigneeLabel(chore.assignee), chore.room, chore.dueDate];
     if (chore.category) metaParts.push(chore.category);
     const repeatDetails = chore.recurrence && chore.recurrence !== "none"
       ? `<details class="repeat-details">
@@ -549,6 +602,7 @@ function render() {
       </div>
       <div class="row-actions">
         <button type="button" data-action="toggle" data-id="${chore.id}">${chore.done ? "Undo" : "Done"}</button>
+        <button type="button" data-action="edit" data-id="${chore.id}">Edit</button>
         <button type="button" class="danger" data-action="delete" data-id="${chore.id}">Delete</button>
       </div>
     `;
@@ -628,6 +682,20 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
+function openChoreEditor(chore) {
+  populateAssigneeOptions(editAssigneeInput, chore.assignee);
+  editChoreForm.dataset.choreId = chore.id;
+  editTitleInput.value = chore.title;
+  editRoomInput.value = chore.room || "Other";
+  editDueDateInput.value = chore.dueDate || "";
+  editCategoryInput.value = chore.category || "";
+  editRecurrenceInput.value = chore.recurrence || "none";
+  editRepeatEndDateInput.value = chore.repeatEndDate || "";
+  updateEditRepeatEndDateVisibility();
+  if (chore.recurrence && chore.recurrence !== "none") editRepeatEndDateInput.value = chore.repeatEndDate || "";
+  editChoreDialog.showModal();
+}
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const home = currentHome();
@@ -666,6 +734,11 @@ listEl.addEventListener("click", async (event) => {
   if (!id || !home) return;
 
   try {
+    if (button.dataset.action === "edit") {
+      const chore = chores.find((item) => item.id === id);
+      if (chore) openChoreEditor(chore);
+      return;
+    }
     if (button.dataset.action === "toggle") {
       const chore = chores.find((c) => c.id === id);
       await api(`/api/homes/${home.id}/chores/${id}`, {
@@ -676,6 +749,35 @@ listEl.addEventListener("click", async (event) => {
     if (button.dataset.action === "delete") {
       await api(`/api/homes/${home.id}/chores/${id}`, { method: "DELETE" });
     }
+    await loadChores(home.id);
+    await loadActivity(home.id);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+});
+
+editChoreCancelBtn.addEventListener("click", () => editChoreDialog.close());
+
+editChoreForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const home = currentHome();
+  const choreId = editChoreForm.dataset.choreId;
+  if (!home || !choreId) return;
+
+  try {
+    await api(`/api/homes/${home.id}/chores/${choreId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: editTitleInput.value.trim(),
+        assignee: editAssigneeInput.value,
+        room: editRoomInput.value,
+        dueDate: editDueDateInput.value || null,
+        category: editCategoryInput.value.trim(),
+        recurrence: editRecurrenceInput.value,
+        repeatEndDate: editRepeatEndDateInput.value || null
+      })
+    });
+    editChoreDialog.close();
     await loadChores(home.id);
     await loadActivity(home.id);
   } catch (err) {

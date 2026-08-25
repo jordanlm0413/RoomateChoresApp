@@ -487,7 +487,7 @@ async function handleCreateChore(request, env, homeId) {
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
 
   const title = String(body.title || "").trim().slice(0, 80);
-  const assignee = String(body.assignee || "").trim().slice(0, 40);
+  const assignee = String(body.assignee || "").trim().slice(0, 80);
   const room = String(body.room || "Other").trim().slice(0, 40);
   const category = body.category ? String(body.category).trim().slice(0, 40) : null;
   const recurrence = RECURRENCE_VALUES.has(body.recurrence) ? body.recurrence : "none";
@@ -498,6 +498,13 @@ async function handleCreateChore(request, env, homeId) {
 
   if (!title || !assignee) {
     return json({ error: "Title and assignee are required." }, { status: 400 });
+  }
+  if (assignee.startsWith("group:")) {
+    const groupId = assignee.slice("group:".length);
+    const group = await env.DB.prepare("SELECT id FROM groups WHERE id = ? AND home_id = ?")
+      .bind(groupId, homeId)
+      .first();
+    if (!group) return json({ error: "That group is not available in this home." }, { status: 400 });
   }
   if (recurrence !== "none" && dueDate && repeatEndDate && new Date(`${repeatEndDate}T00:00:00Z`) < new Date(`${dueDate}T00:00:00Z`)) {
     return json({ error: "Repeat end date must be on or after the due date." }, { status: 400 });
@@ -546,6 +553,37 @@ async function handleUpdateChore(request, env, homeId, choreId) {
     .bind(choreId, homeId)
     .first();
   if (!chore) return json({ error: "Chore not found." }, { status: 404 });
+
+  if (typeof body.done !== "boolean") {
+    const title = String(body.title || "").trim().slice(0, 80);
+    const assignee = String(body.assignee || "").trim().slice(0, 80);
+    const room = String(body.room || "Other").trim().slice(0, 40);
+    const category = body.category ? String(body.category).trim().slice(0, 40) : null;
+    const recurrence = RECURRENCE_VALUES.has(body.recurrence) ? body.recurrence : "none";
+    const dueDate = body.dueDate ? String(body.dueDate).slice(0, 20) : null;
+    const repeatEndDate = recurrence !== "none" && body.repeatEndDate
+      ? String(body.repeatEndDate).slice(0, 20)
+      : null;
+
+    if (!title || !assignee) return json({ error: "Title and assignee are required." }, { status: 400 });
+    if (assignee.startsWith("group:")) {
+      const group = await env.DB.prepare("SELECT id FROM groups WHERE id = ? AND home_id = ?")
+        .bind(assignee.slice("group:".length), homeId)
+        .first();
+      if (!group) return json({ error: "That group is not available in this home." }, { status: 400 });
+    }
+    if (recurrence !== "none" && dueDate && repeatEndDate && new Date(`${repeatEndDate}T00:00:00Z`) < new Date(`${dueDate}T00:00:00Z`)) {
+      return json({ error: "Repeat end date must be on or after the due date." }, { status: 400 });
+    }
+
+    await env.DB.prepare(
+      "UPDATE chores SET title = ?, assignee = ?, room = ?, category = ?, recurrence = ?, due_date = ?, repeat_end_date = ? WHERE id = ? AND home_id = ?"
+    )
+      .bind(title, assignee, room, category, recurrence, dueDate, repeatEndDate, choreId, homeId)
+      .run();
+    await logActivity(env, homeId, auth.user.username, "edited", title);
+    return json({ ok: true });
+  }
 
   const done = body.done ? 1 : 0;
   await env.DB.prepare("UPDATE chores SET done = ? WHERE id = ? AND home_id = ?")
@@ -624,7 +662,7 @@ async function handleRandomizeAssignment(request, env, homeId) {
   }
 
   const { results: openChores } = await env.DB.prepare(
-    "SELECT id FROM chores WHERE home_id = ? AND done = 0"
+    "SELECT id FROM chores WHERE home_id = ? AND done = 0 AND assignee NOT LIKE 'group:%'"
   )
     .bind(homeId)
     .all();
