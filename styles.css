@@ -389,6 +389,18 @@ select {
   padding: 0.5rem 0.7rem;
 }
 
+.member-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.user-name-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .role-badge {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.72rem;

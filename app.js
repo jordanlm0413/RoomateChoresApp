@@ -48,6 +48,7 @@ const settingsTabs = document.querySelectorAll("[data-settings-tab]");
 const settingsPanels = document.querySelectorAll("[data-settings-panel]");
 const accountForm = document.getElementById("account-form");
 const settingsUsernameInput = document.getElementById("settings-username");
+const settingsDisplayNameInput = document.getElementById("settings-display-name");
 const settingsNewPasswordInput = document.getElementById("settings-new-password");
 const settingsCurrentPasswordInput = document.getElementById("settings-current-password");
 const accountErrorEl = document.getElementById("account-error");
@@ -74,6 +75,34 @@ let currentUser = null;
 let homes = [];
 let selectedHomeId = localStorage.getItem(SELECTED_HOME_KEY) || null;
 let chores = [];
+
+function currentUserNameLabel(user = currentUser) {
+  if (!user) return "";
+  const username = String(user.username || "");
+  const displayName = String(user.displayName || "").trim();
+  if (displayName && displayName !== username) {
+    return `${escapeHtml(displayName)} <span class="user-name-meta">@${escapeHtml(username)}</span>`;
+  }
+  return escapeHtml(username);
+}
+
+function memberNameLabel(member) {
+  const username = String(member.username || "");
+  const displayName = String(member.displayName || "").trim();
+  if (displayName && displayName !== username) {
+    return `${escapeHtml(displayName)} <span class="user-name-meta">@${escapeHtml(username)}</span>`;
+  }
+  return escapeHtml(username);
+}
+
+function memberNameText(member) {
+  const username = String(member.username || "");
+  const displayName = String(member.displayName || "").trim();
+  if (displayName && displayName !== username) {
+    return `${displayName} (@${username})`;
+  }
+  return username;
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -120,7 +149,8 @@ async function init() {
       return;
     }
 
-    currentUsernameEl.textContent = currentUser.username;
+    currentUsernameEl.innerHTML = currentUserNameLabel(currentUser);
+    if (settingsDisplayNameInput) settingsDisplayNameInput.value = currentUser.displayName || "";
   }
 
   await loadHomes();
@@ -201,8 +231,11 @@ function renderMembers(members) {
     const isOwner = member.role === "owner";
     const canRemove = home && home.role === "owner" && !isOwner;
     li.innerHTML = `
-      <span>${escapeHtml(member.username)} ${isOwner ? '<span class="role-badge">owner</span>' : ""}</span>
-      ${canRemove ? `<button type="button" class="danger" data-user-id="${member.id}">Remove</button>` : ""}
+      <span class="member-name-wrap">
+        <span>${memberNameLabel(member)}</span>
+        ${isOwner ? '<span class="role-badge">owner</span>' : ""}
+      </span>
+      ${canRemove ? `<button type="button" class="danger" data-user-id="${member.id}" aria-label="Remove ${escapeHtml(memberNameText(member))}">Remove</button>` : ""}
     `;
     memberListEl.appendChild(li);
   });
@@ -281,7 +314,7 @@ function renderGroups(groups) {
     li.className = "group-item";
     const memberChips = group.members
       .map(
-        (m) => `<span class="chip">${escapeHtml(m.username)}${isOwner ? ` <button type="button" data-action="remove-group-member" data-group-id="${group.id}" data-user-id="${m.id}" aria-label="Remove ${escapeHtml(m.username)} from ${escapeHtml(group.name)}">&times;</button>` : ""}</span>`
+        (m) => `<span class="chip">${memberNameLabel(m)}${isOwner ? ` <button type="button" data-action="remove-group-member" data-group-id="${group.id}" data-user-id="${m.id}" aria-label="Remove ${escapeHtml(memberNameText(m))} from ${escapeHtml(group.name)}">&times;</button>` : ""}</span>`
       )
       .join(" ");
     li.innerHTML = `
@@ -769,22 +802,32 @@ function showAccountSuccess(message) {
 accountForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const newUsername = settingsUsernameInput.value.trim();
+  const newDisplayName = settingsDisplayNameInput.value.trim();
   const newPassword = settingsNewPasswordInput.value;
   const currentPassword = settingsCurrentPasswordInput.value;
 
-  if (!newUsername && !newPassword) {
-    showAccountError("Enter a new username and/or new password to update.");
+  if (!newUsername && !newPassword && !newDisplayName) {
+    showAccountError("Enter a new username, display name, and/or new password to update.");
     return;
   }
 
   try {
+    const payload = {
+      currentPassword,
+      newUsername: newUsername || null,
+      newPassword: newPassword || null
+    };
+    if (newDisplayName) payload.newDisplayName = newDisplayName;
+
     const { user } = await api("/api/auth/me", {
       method: "PATCH",
-      body: JSON.stringify({ currentPassword, newUsername: newUsername || null, newPassword: newPassword || null })
+      body: JSON.stringify(payload)
     });
     currentUser = user;
-    currentUsernameEl.textContent = user.username;
+    currentUsernameEl.innerHTML = currentUserNameLabel(user);
+    if (settingsDisplayNameInput) settingsDisplayNameInput.value = user.displayName || "";
     accountForm.reset();
+    if (settingsDisplayNameInput) settingsDisplayNameInput.value = user.displayName || "";
     showAccountSuccess("Account updated.");
   } catch (err) {
     showAccountError(err.message);
