@@ -42,14 +42,20 @@
 
       <form id="signup-form" class="auth-form" role="tabpanel" aria-labelledby="tab-signup" hidden>
         <label>
-          Username
+          Create Username
           <input id="signup-username" type="text" minlength="3" maxlength="24" autocomplete="username" required />
         </label>
+        <p class="hint">3-24 characters for username.</p>
         <label>
-          Password
+          Create Password
           <input id="signup-password" type="password" minlength="8" autocomplete="new-password" required />
         </label>
-        <p class="hint">3-24 characters for username, at least 8 characters for password.</p>
+        
+        <p class="hint">At least 8 characters for password.</p>
+        <label>
+          Confirm Password
+          <input id="signup-password-confirm" type="password" minlength="8" autocomplete="new-password" required />
+        </label>
         <button type="submit" class="btn primary">Create Account</button>
       </form>
 

@@ -78,8 +78,16 @@ loginForm.addEventListener("submit", async (event) => {
 signupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
+
   const username = document.getElementById("signup-username").value.trim();
   const password = document.getElementById("signup-password").value;
+  const confirmPassword = document.getElementById("signup-password-confirm").value;
+
+  // Check if passwords match
+  if (password !== confirmPassword) {
+    showError("Passwords do not match.");
+    return;
+  }
 
   try {
     const res = await fetch("/api/auth/register", {
@@ -88,16 +96,20 @@ signupForm.addEventListener("submit", async (event) => {
       credentials: "same-origin",
       body: JSON.stringify({ username, password })
     });
+
     const data = await res.json();
+
     if (!res.ok) {
       showError(data.error || "Could not create account.");
       return;
     }
+
     window.location.href = "index.html";
   } catch {
     showError("Network error. Please try again.");
   }
 });
+
 
 // --- Theme toggle ---
 
