@@ -458,7 +458,8 @@ async function handleListChores(request, env, homeId) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") || "").trim();
 
-  let query = `SELECT id, title, assignee, room, category, recurrence, due_date AS dueDate, done
+    let query = `SELECT id, title, assignee, room, category, recurrence, due_date AS dueDate,
+      repeat_end_date AS repeatEndDate, done
      FROM chores WHERE home_id = ?`;
   const bindings = [homeId];
   if (q) {
@@ -491,7 +492,9 @@ async function handleCreateChore(request, env, homeId) {
   const category = body.category ? String(body.category).trim().slice(0, 40) : null;
   const recurrence = RECURRENCE_VALUES.has(body.recurrence) ? body.recurrence : "none";
   const dueDate = body.dueDate ? String(body.dueDate).slice(0, 20) : null;
-  const repeatEndDate = body.repeatEndDate ? String(body.repeatEndDate).slice(0, 20) : null;
+  const repeatEndDate = recurrence !== "none" && body.repeatEndDate
+    ? String(body.repeatEndDate).slice(0, 20)
+    : null;
 
   if (!title || !assignee) {
     return json({ error: "Title and assignee are required." }, { status: 400 });
@@ -519,6 +522,7 @@ async function handleCreateChore(request, env, homeId) {
         category,
         recurrence,
         dueDate: dueDate || "No due date",
+        repeatEndDate,
         done: false
       }
     },

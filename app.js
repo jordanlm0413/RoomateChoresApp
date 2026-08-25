@@ -23,6 +23,7 @@ const dueDateInput = document.getElementById("dueDate");
 const categoryInput = document.getElementById("category");
 const recurrenceInput = document.getElementById("recurrence");
 const repeatEndDateInput = document.getElementById("repeat-end-date");
+const repeatEndDateField = document.getElementById("repeat-end-date-field");
 const listEl = document.getElementById("chore-list");
 const emptyState = document.getElementById("empty-state");
 const filterEl = document.getElementById("filter");
@@ -175,6 +176,16 @@ function bindPasswordToggle(inputId) {
 }
 
 ["settings-new-password", "settings-current-password"].forEach(bindPasswordToggle);
+
+function updateRepeatEndDateVisibility() {
+  const repeats = recurrenceInput.value !== "none";
+  repeatEndDateField.hidden = !repeats;
+  repeatEndDateInput.disabled = !repeats;
+  if (!repeats) repeatEndDateInput.value = "";
+}
+
+recurrenceInput.addEventListener("change", updateRepeatEndDateVisibility);
+updateRepeatEndDateVisibility();
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -608,7 +619,7 @@ form.addEventListener("submit", async (event) => {
     form.reset();
     roomInput.value = "Kitchen";
     recurrenceInput.value = "none";
-    repeatEndDateInput.value = "";
+    updateRepeatEndDateVisibility();
     await loadChores(home.id);
     await loadActivity(home.id);
   } catch (err) {
