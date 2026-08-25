@@ -22,6 +22,7 @@ const roomInput = document.getElementById("room");
 const dueDateInput = document.getElementById("dueDate");
 const categoryInput = document.getElementById("category");
 const recurrenceInput = document.getElementById("recurrence");
+const repeatEndDateInput = document.getElementById("repeat-end-date");
 const listEl = document.getElementById("chore-list");
 const emptyState = document.getElementById("empty-state");
 const filterEl = document.getElementById("filter");
@@ -75,6 +76,7 @@ let currentUser = null;
 let homes = [];
 let selectedHomeId = localStorage.getItem(SELECTED_HOME_KEY) || null;
 let chores = [];
+let currentHomeMembers = [];
 
 function currentUserNameLabel(user = currentUser) {
   if (!user) return "";
@@ -102,6 +104,27 @@ function memberNameText(member) {
     return `${displayName} (@${username})`;
   }
   return username;
+}
+
+function memberSelectOptionText(member) {
+  const username = String(member.username || "");
+  const displayName = String(member.displayName || "").trim();
+  if (displayName && displayName !== username) {
+    return `${displayName} (@${username})`;
+  }
+  return username;
+}
+
+function memberSelectOptions(members, placeholder = "Select a roommate") {
+  if (!members.length) {
+    return '<option value="">No roommates yet</option>';
+  }
+
+  const options = [`<option value="">${escapeHtml(placeholder)}</option>`];
+  members.forEach((member) => {
+    options.push(`<option value="${escapeHtml(member.username)}">${escapeHtml(memberSelectOptionText(member))}</option>`);
+  });
+  return options.join("");
 }
 
 async function api(path, options = {}) {
@@ -135,6 +158,23 @@ function clearHomeError() {
   homeSuccessEl.hidden = true;
   homeSuccessEl.textContent = "";
 }
+
+function bindPasswordToggle(inputId) {
+  const input = document.getElementById(inputId);
+  const toggle = input?.closest(".password-field")?.querySelector(".password-toggle");
+
+  if (!input || !toggle) return;
+
+  toggle.addEventListener("click", () => {
+    const isHidden = input.type === "password";
+    input.type = isHidden ? "text" : "password";
+    toggle.textContent = isHidden ? "Hide" : "Show";
+    toggle.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
+    toggle.setAttribute("aria-pressed", String(isHidden));
+  });
+}
+
+["settings-new-password", "settings-current-password"].forEach(bindPasswordToggle);
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -225,7 +265,13 @@ async function loadMembers(homeId) {
 
 function renderMembers(members) {
   const home = currentHome();
+  currentHomeMembers = members;
   memberListEl.innerHTML = "";
+
+  const assigneeOptions = [
+    '<option value="">Select a roommate</option>'
+  ];
+
   members.forEach((member) => {
     const li = document.createElement("li");
     const isOwner = member.role === "owner";
@@ -238,7 +284,17 @@ function renderMembers(members) {
       ${canRemove ? `<button type="button" class="danger" data-user-id="${member.id}" aria-label="Remove ${escapeHtml(memberNameText(member))}">Remove</button>` : ""}
     `;
     memberListEl.appendChild(li);
+
+    const optionText = memberSelectOptionText(member);
+    assigneeOptions.push(`<option value="${escapeHtml(member.username)}">${escapeHtml(optionText)}</option>`);
   });
+
+  if (assigneeInput) {
+    assigneeInput.innerHTML = assigneeOptions.join("");
+    if (!members.length) {
+      assigneeInput.innerHTML = '<option value="">No roommates yet</option>';
+    }
+  }
 }
 
 async function loadChores(homeId) {
@@ -256,7 +312,7 @@ async function loadChores(homeId) {
 function renderReminderBanner() {
   if (!reminderBanner) return;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const open = chores.filter((c) => !c.done && c.dueDate && c.dueDate !== "No due date");
+  const open = expandRecurringChores(chores).filter((c) => !c.done && c.dueDate && c.dueDate !== "No due date");
   const overdue = open.filter((c) => c.dueDate < todayStr);
   const dueToday = open.filter((c) => c.dueDate === todayStr);
 
@@ -327,8 +383,10 @@ function renderGroups(groups) {
         isOwner
           ? `<form class="inline-form" data-action="add-group-member" data-group-id="${group.id}">
               <label>
-                Add member by username
-                <input type="text" maxlength="24" data-group-username-input required />
+                Add member
+                <select data-group-username-input required>
+                  ${memberSelectOptions(membersForGroupOptions(group, home))}
+                </select>
               </label>
               <button type="submit" class="btn ghost">Add</button>
             </form>`
@@ -337,6 +395,11 @@ function renderGroups(groups) {
     `;
     groupListEl.appendChild(li);
   });
+}
+
+function membersForGroupOptions(group, home) {
+  if (!home || !home.id) return [];
+  return currentHomeMembers || [];
 }
 
 createHomeForm.addEventListener("submit", async (event) => {
@@ -426,8 +489,53 @@ logoutBtn.addEventListener("click", async () => {
   }
 });
 
+function recurringStepDays(recurrence) {
+  if (recurrence === "daily") return 1;
+  if (recurrence === "weekly") return 7;
+  if (recurrence === "monthly") return 30;
+  return null;
+}
+
+function expandRecurringChores(choreList) {
+  const expanded = [];
+  const horizon = new Date();
+  horizon.setUTCDate(horizon.getUTCDate() + 365);
+
+  choreList.forEach((chore) => {
+    if (!chore.dueDate || chore.recurrence === "none" || chore.done) {
+      expanded.push(chore);
+      return;
+    }
+
+    const stepDays = recurringStepDays(chore.recurrence);
+    if (!stepDays) {
+      expanded.push(chore);
+      return;
+    }
+
+    const endDate = chore.repeatEndDate ? new Date(`${chore.repeatEndDate}T00:00:00Z`) : null;
+    let cursor = new Date(`${chore.dueDate}T00:00:00Z`);
+    let count = 0;
+
+    while (cursor <= horizon && (!endDate || cursor <= endDate) && count < 52) {
+      expanded.push({
+        ...chore,
+        dueDate: cursor.toISOString().slice(0, 10),
+        recurringInstance: true,
+        originalId: chore.id,
+        isRecurringOccurrence: true
+      });
+      cursor = new Date(cursor);
+      cursor.setUTCDate(cursor.getUTCDate() + stepDays);
+      count += 1;
+    }
+  });
+
+  return expanded;
+}
+
 function filteredChores() {
-  let visible = chores;
+  let visible = expandRecurringChores(chores);
   if (filterEl.value === "open") {
     visible = visible.filter((c) => !c.done);
   } else if (filterEl.value === "done") {
@@ -493,12 +601,14 @@ form.addEventListener("submit", async (event) => {
         room: roomInput.value,
         dueDate: dueDateInput.value,
         category: categoryInput.value.trim(),
-        recurrence: recurrenceInput.value
+        recurrence: recurrenceInput.value,
+        repeatEndDate: repeatEndDateInput.value || null
       })
     });
     form.reset();
     roomInput.value = "Kitchen";
     recurrenceInput.value = "none";
+    repeatEndDateInput.value = "";
     await loadChores(home.id);
     await loadActivity(home.id);
   } catch (err) {
@@ -608,7 +718,7 @@ function renderCalendar() {
   calendarMonthLabel.textContent = monthFormatter.format(calendarCursor);
 
   const choresByDate = {};
-  chores.forEach((chore) => {
+  expandRecurringChores(chores).forEach((chore) => {
     if (!chore.dueDate || chore.dueDate === "No due date") return;
     (choresByDate[chore.dueDate] ||= []).push(chore);
   });

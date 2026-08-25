@@ -14,6 +14,23 @@ function clearError() {
   errorEl.textContent = "";
 }
 
+function bindPasswordToggle(inputId) {
+  const input = document.getElementById(inputId);
+  const toggle = input?.closest(".password-field")?.querySelector(".password-toggle");
+
+  if (!input || !toggle) return;
+
+  toggle.addEventListener("click", () => {
+    const isHidden = input.type === "password";
+    input.type = isHidden ? "text" : "password";
+    toggle.textContent = isHidden ? "Hide" : "Show";
+    toggle.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
+    toggle.setAttribute("aria-pressed", String(isHidden));
+  });
+}
+
+["login-password", "signup-password", "signup-password-confirm"].forEach(bindPasswordToggle);
+
 function setActiveTab(which) {
   clearError();
   const isLogin = which === "login";

@@ -24,7 +24,7 @@ async function readJson(request) {
 
 const RECURRENCE_VALUES = new Set(["none", "daily", "weekly", "monthly"]);
 
-function nextDueDate(dueDate, recurrence) {
+function nextDueDate(dueDate, recurrence, repeatEndDate = null) {
   if (!dueDate) return null;
   const [y, m, d] = dueDate.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
@@ -32,6 +32,12 @@ function nextDueDate(dueDate, recurrence) {
   else if (recurrence === "weekly") date.setUTCDate(date.getUTCDate() + 7);
   else if (recurrence === "monthly") date.setUTCMonth(date.getUTCMonth() + 1);
   else return null;
+
+  if (repeatEndDate) {
+    const end = new Date(`${repeatEndDate}T00:00:00Z`);
+    if (date > end) return null;
+  }
+
   return date.toISOString().slice(0, 10);
 }
 
@@ -485,16 +491,20 @@ async function handleCreateChore(request, env, homeId) {
   const category = body.category ? String(body.category).trim().slice(0, 40) : null;
   const recurrence = RECURRENCE_VALUES.has(body.recurrence) ? body.recurrence : "none";
   const dueDate = body.dueDate ? String(body.dueDate).slice(0, 20) : null;
+  const repeatEndDate = body.repeatEndDate ? String(body.repeatEndDate).slice(0, 20) : null;
 
   if (!title || !assignee) {
     return json({ error: "Title and assignee are required." }, { status: 400 });
   }
+  if (recurrence !== "none" && dueDate && repeatEndDate && new Date(`${repeatEndDate}T00:00:00Z`) < new Date(`${dueDate}T00:00:00Z`)) {
+    return json({ error: "Repeat end date must be on or after the due date." }, { status: 400 });
+  }
 
   const id = newId();
   await env.DB.prepare(
-    "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
+    "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, repeat_end_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"
   )
-    .bind(id, homeId, title, assignee, room, category, recurrence, dueDate)
+    .bind(id, homeId, title, assignee, room, category, recurrence, dueDate, repeatEndDate)
     .run();
 
   await logActivity(env, homeId, auth.user.username, "created", title);
@@ -527,7 +537,7 @@ async function handleUpdateChore(request, env, homeId, choreId) {
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
 
   const chore = await env.DB.prepare(
-    "SELECT title, assignee, room, category, recurrence, due_date AS dueDate FROM chores WHERE id = ? AND home_id = ?"
+    "SELECT title, assignee, room, category, recurrence, due_date AS dueDate, repeat_end_date AS repeatEndDate FROM chores WHERE id = ? AND home_id = ?"
   )
     .bind(choreId, homeId)
     .first();
@@ -541,12 +551,14 @@ async function handleUpdateChore(request, env, homeId, choreId) {
   await logActivity(env, homeId, auth.user.username, done ? "completed" : "reopened", chore.title);
 
   if (done && chore.recurrence !== "none") {
-    const upcomingDueDate = nextDueDate(chore.dueDate, chore.recurrence);
-    await env.DB.prepare(
-      "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)"
-    )
-      .bind(newId(), homeId, chore.title, chore.assignee, chore.room, chore.category, chore.recurrence, upcomingDueDate)
-      .run();
+    const upcomingDueDate = nextDueDate(chore.dueDate, chore.recurrence, chore.repeatEndDate);
+    if (upcomingDueDate) {
+      await env.DB.prepare(
+        "INSERT INTO chores (id, home_id, title, assignee, room, category, recurrence, due_date, repeat_end_date, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)"
+      )
+        .bind(newId(), homeId, chore.title, chore.assignee, chore.room, chore.category, chore.recurrence, upcomingDueDate, chore.repeatEndDate)
+        .run();
+    }
   }
 
   return json({ ok: true });

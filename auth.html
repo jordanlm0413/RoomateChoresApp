@@ -35,7 +35,10 @@
         </label>
         <label>
           Password
-          <input id="login-password" type="password" autocomplete="current-password" required />
+          <div class="password-field">
+            <input id="login-password" type="password" autocomplete="current-password" required />
+            <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+          </div>
         </label>
         <button type="submit" class="btn primary">Sign In</button>
       </form>
@@ -48,13 +51,19 @@
         <p class="hint">3-24 characters for username.</p>
         <label>
           Create Password
-          <input id="signup-password" type="password" minlength="8" autocomplete="new-password" required />
+          <div class="password-field">
+            <input id="signup-password" type="password" minlength="8" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+          </div>
         </label>
         
         <p class="hint">At least 8 characters for password.</p>
         <label>
           Confirm Password
-          <input id="signup-password-confirm" type="password" minlength="8" autocomplete="new-password" required />
+          <div class="password-field">
+            <input id="signup-password-confirm" type="password" minlength="8" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+          </div>
         </label>
         <button type="submit" class="btn primary">Create Account</button>
       </form>

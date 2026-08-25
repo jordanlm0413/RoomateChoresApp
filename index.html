@@ -84,7 +84,9 @@
             </label>
             <label>
               Assignee
-              <input id="assignee" type="text" maxlength="40" placeholder="Jordan" required />
+              <select id="assignee" required>
+                <option value="">Select a roommate</option>
+              </select>
             </label>
             <label>
               Room
@@ -112,6 +114,10 @@
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
               </select>
+            </label>
+            <label>
+              Repeat ends
+              <input id="repeat-end-date" type="date" />
             </label>
           </div>
           <button type="submit" class="btn primary">Add</button>
@@ -184,11 +190,17 @@
             </label>
             <label>
               New password
-              <input id="settings-new-password" type="password" minlength="8" placeholder="Leave blank to keep current" />
+              <div class="password-field">
+                <input id="settings-new-password" type="password" minlength="8" placeholder="Leave blank to keep current" />
+                <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+              </div>
             </label>
             <label>
               Current password
-              <input id="settings-current-password" type="password" required autocomplete="current-password" />
+              <div class="password-field">
+                <input id="settings-current-password" type="password" required autocomplete="current-password" />
+                <button type="button" class="password-toggle" aria-label="Show password">Show</button>
+              </div>
             </label>
             <button type="submit" class="btn primary">Save Account Changes</button>
           </form>
