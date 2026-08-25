@@ -79,7 +79,7 @@ async function handleRegister(request, env) {
   }
 
   const cookie = await createSession(env, id, request);
-  return json({ user: { id, username } }, { status: 201, headers: { "Set-Cookie": cookie } });
+  return json({ user: { id, username, displayName: null } }, { status: 201, headers: { "Set-Cookie": cookie } });
 }
 
 async function handleLogin(request, env) {
@@ -90,7 +90,7 @@ async function handleLogin(request, env) {
   const password = String(body.password || "");
 
   const user = await env.DB.prepare(
-    "SELECT id, username, password_hash FROM users WHERE username = ?"
+    "SELECT id, username, display_name AS displayName, password_hash FROM users WHERE username = ?"
   )
     .bind(username)
     .first();
@@ -101,7 +101,7 @@ async function handleLogin(request, env) {
 
   const cookie = await createSession(env, user.id, request);
   return json(
-    { user: { id: user.id, username: user.username } },
+    { user: { id: user.id, username: user.username, displayName: user.displayName || null } },
     { headers: { "Set-Cookie": cookie } }
   );
 }
@@ -127,8 +127,9 @@ async function handleUpdateAccount(request, env) {
   const currentPassword = String(body.currentPassword || "");
   const newUsername = body.newUsername != null ? String(body.newUsername).trim() : null;
   const newPassword = body.newPassword != null ? String(body.newPassword) : null;
+  const newDisplayName = body.newDisplayName != null ? String(body.newDisplayName).trim().slice(0, 40) : undefined;
 
-  if (!newUsername && !newPassword) {
+  if (!newUsername && !newPassword && newDisplayName === undefined) {
     return json({ error: "Nothing to update." }, { status: 400 });
   }
 
@@ -166,13 +167,23 @@ async function handleUpdateAccount(request, env) {
     updates.push("password_hash = ?");
     values.push(await hashPassword(newPassword));
   }
+  if (newDisplayName !== undefined) {
+    updates.push("display_name = ?");
+    values.push(newDisplayName || null);
+  }
   values.push(auth.user.id);
 
   await env.DB.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`)
     .bind(...values)
     .run();
 
-  return json({ user: { id: auth.user.id, username: newUsername || auth.user.username } });
+  return json({
+    user: {
+      id: auth.user.id,
+      username: newUsername || auth.user.username,
+      displayName: newDisplayName !== undefined ? newDisplayName || null : auth.user.displayName
+    }
+  });
 }
 
 async function handleListHomes(request, env) {
@@ -283,7 +294,7 @@ async function handleInvite(request, env, homeId) {
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
 
   const username = String(body.username || "").trim();
-  const invitee = await env.DB.prepare("SELECT id, username FROM users WHERE username = ?")
+  const invitee = await env.DB.prepare("SELECT id, username, display_name AS displayName FROM users WHERE username = ?")
     .bind(username)
     .first();
   if (!invitee) return json({ error: "No user found with that username." }, { status: 404 });
@@ -303,7 +314,10 @@ async function handleInvite(request, env, homeId) {
     .bind(homeId, invitee.id)
     .run();
 
-  return json({ member: { id: invitee.id, username: invitee.username, role: "member" } }, { status: 201 });
+  return json(
+    { member: { id: invitee.id, username: invitee.username, displayName: invitee.displayName || null, role: "member" } },
+    { status: 201 }
+  );
 }
 
 async function handleUpdateHome(request, env, homeId) {
@@ -393,7 +407,8 @@ async function handleListMembers(request, env, homeId) {
   if (!role) return json({ error: "You are not a member of this home." }, { status: 403 });
 
   const { results } = await env.DB.prepare(
-    `SELECT users.id AS id, users.username AS username, home_members.role AS role
+    `SELECT users.id AS id, users.username AS username, users.display_name AS displayName,
+            home_members.role AS role
      FROM home_members JOIN users ON users.id = home_members.user_id
      WHERE home_members.home_id = ?
      ORDER BY home_members.joined_at ASC`
@@ -643,7 +658,7 @@ async function handleListGroups(request, env, homeId) {
 
   for (const group of groups) {
     const { results: members } = await env.DB.prepare(
-      `SELECT users.id AS id, users.username AS username FROM group_members
+      `SELECT users.id AS id, users.username AS username, users.display_name AS displayName FROM group_members
        JOIN users ON users.id = group_members.user_id
        WHERE group_members.group_id = ?`
     )
@@ -698,7 +713,7 @@ async function handleAddGroupMember(request, env, homeId, groupId) {
   if (!body) return json({ error: "Invalid request body." }, { status: 400 });
 
   const username = String(body.username || "").trim();
-  const user = await env.DB.prepare("SELECT id, username FROM users WHERE username = ?")
+  const user = await env.DB.prepare("SELECT id, username, display_name AS displayName FROM users WHERE username = ?")
     .bind(username)
     .first();
   if (!user) return json({ error: "No user found with that username." }, { status: 404 });
@@ -712,7 +727,7 @@ async function handleAddGroupMember(request, env, homeId, groupId) {
     .bind(groupId, user.id)
     .run();
 
-  return json({ member: { id: user.id, username: user.username } }, { status: 201 });
+  return json({ member: { id: user.id, username: user.username, displayName: user.displayName || null } }, { status: 201 });
 }
 
 async function handleRemoveGroupMember(request, env, homeId, groupId) {

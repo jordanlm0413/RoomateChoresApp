@@ -7,6 +7,10 @@
   --brand-2: #2f9d73;
   --warn: #b44f28;
   --surface: #ffffff;
+  --banner-bg: #12181a;
+  --banner-text: #f4f7f6;
+  --banner-stroke: rgba(244, 247, 246, 0.18);
+  --radius: 10px;
   color-scheme: light;
 }
 
@@ -19,6 +23,9 @@
   --brand-2: #57c996;
   --warn: #ff8a5c;
   --surface: #1b2427;
+  --banner-bg: #05090a;
+  --banner-text: #f4f7f6;
+  --banner-stroke: rgba(244, 247, 246, 0.22);
   color-scheme: dark;
 }
 
@@ -38,10 +45,10 @@ body {
   position: absolute;
   top: -3rem;
   left: 0.5rem;
-  background: var(--ink);
-  color: #fff;
+  background: var(--banner-bg);
+  color: var(--banner-text);
   padding: 0.6rem 1rem;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 var(--radius) var(--radius);
   z-index: 100;
   text-decoration: none;
 }
@@ -56,9 +63,9 @@ body {
 }
 
 .site-banner {
-  background: var(--ink);
-  color: #fff;
-  padding: 0.85rem 1rem;
+  background: var(--banner-bg);
+  color: var(--banner-text);
+  padding: 0.85rem 1rem 0.6rem;
 }
 
 .site-banner-row {
@@ -81,21 +88,21 @@ body {
 .main-tabs {
   max-width: 980px;
   margin: 0 auto;
-  padding: 0.75rem 1rem 0;
+  padding: 0.75rem 0 0;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
 .main-tab {
-  border: 1px solid var(--stroke);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--banner-stroke);
+  background: transparent;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
   cursor: pointer;
   font: inherit;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--banner-text);
 }
 
 .main-tab.active {
@@ -133,17 +140,17 @@ body {
 
 .user-bar .btn.ghost {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #fff;
+  border-color: var(--banner-stroke);
+  color: var(--banner-text);
 }
 
 .username-pill {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.82rem;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  border-radius: 999px;
+  background: rgba(244, 247, 246, 0.12);
+  border: 1px solid var(--banner-stroke);
+  color: var(--banner-text);
+  border-radius: var(--radius);
   padding: 0.35rem 0.75rem;
 }
 
@@ -387,7 +394,7 @@ select {
   font-size: 0.72rem;
   color: var(--brand);
   border: 1px solid var(--brand);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 0.1rem 0.5rem;
   margin-left: 0.4rem;
 }
@@ -573,7 +580,7 @@ select {
 .chip {
   background: rgba(31, 122, 90, 0.12);
   color: var(--brand);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 0.2rem 0.5rem;
   font-size: 0.8rem;
   display: inline-flex;

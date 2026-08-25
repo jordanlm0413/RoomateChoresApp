@@ -97,7 +97,8 @@ export async function getSessionUser(request, env) {
   if (!token) return null;
 
   const row = await env.DB.prepare(
-    `SELECT users.id AS id, users.username AS username, sessions.expires_at AS expires_at
+    `SELECT users.id AS id, users.username AS username, users.display_name AS displayName,
+            sessions.expires_at AS expires_at
      FROM sessions JOIN users ON users.id = sessions.user_id
      WHERE sessions.id = ?`
   )
@@ -109,7 +110,7 @@ export async function getSessionUser(request, env) {
     await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(token).run();
     return null;
   }
-  return { id: row.id, username: row.username };
+  return { id: row.id, username: row.username, displayName: row.displayName || null };
 }
 
 export async function destroySession(request, env) {
