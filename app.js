@@ -331,7 +331,7 @@ async function loadChores(homeId) {
 function renderReminderBanner() {
   if (!reminderBanner) return;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const open = expandRecurringChores(chores).filter((c) => !c.done && c.dueDate && c.dueDate !== "No due date");
+  const open = chores.filter((c) => !c.done && c.dueDate && c.dueDate !== "No due date");
   const overdue = open.filter((c) => c.dueDate < todayStr);
   const dueToday = open.filter((c) => c.dueDate === todayStr);
 
@@ -508,53 +508,8 @@ logoutBtn.addEventListener("click", async () => {
   }
 });
 
-function recurringStepDays(recurrence) {
-  if (recurrence === "daily") return 1;
-  if (recurrence === "weekly") return 7;
-  if (recurrence === "monthly") return 30;
-  return null;
-}
-
-function expandRecurringChores(choreList) {
-  const expanded = [];
-  const horizon = new Date();
-  horizon.setUTCDate(horizon.getUTCDate() + 365);
-
-  choreList.forEach((chore) => {
-    if (!chore.dueDate || chore.recurrence === "none" || chore.done) {
-      expanded.push(chore);
-      return;
-    }
-
-    const stepDays = recurringStepDays(chore.recurrence);
-    if (!stepDays) {
-      expanded.push(chore);
-      return;
-    }
-
-    const endDate = chore.repeatEndDate ? new Date(`${chore.repeatEndDate}T00:00:00Z`) : null;
-    let cursor = new Date(`${chore.dueDate}T00:00:00Z`);
-    let count = 0;
-
-    while (cursor <= horizon && (!endDate || cursor <= endDate) && count < 52) {
-      expanded.push({
-        ...chore,
-        dueDate: cursor.toISOString().slice(0, 10),
-        recurringInstance: true,
-        originalId: chore.id,
-        isRecurringOccurrence: true
-      });
-      cursor = new Date(cursor);
-      cursor.setUTCDate(cursor.getUTCDate() + stepDays);
-      count += 1;
-    }
-  });
-
-  return expanded;
-}
-
 function filteredChores() {
-  let visible = expandRecurringChores(chores);
+  let visible = chores.slice();
   if (filterEl.value === "open") {
     visible = visible.filter((c) => !c.done);
   } else if (filterEl.value === "done") {
@@ -652,7 +607,13 @@ function renderTracker() {
     .forEach((chore) => {
       const item = document.createElement("li");
       item.className = chore.done ? "done" : "";
-      item.innerHTML = `<span>${escapeHtml(chore.title)}</span><span>${escapeHtml(chore.dueDate || "No due date")}</span>`;
+      item.innerHTML = `
+        <span>${escapeHtml(chore.title)}</span>
+        <span class="tracker-item-actions">
+          <span>${escapeHtml(chore.dueDate || "No due date")}</span>
+          <button type="button" class="tracker-done" data-chore-id="${chore.id}">${chore.done ? "Undo" : "Done"}</button>
+        </span>
+      `;
       trackerListEl.appendChild(item);
     });
   trackerEmptyEl.hidden = trackedChores.length !== 0;
@@ -715,6 +676,26 @@ listEl.addEventListener("click", async (event) => {
     if (button.dataset.action === "delete") {
       await api(`/api/homes/${home.id}/chores/${id}`, { method: "DELETE" });
     }
+    await loadChores(home.id);
+    await loadActivity(home.id);
+  } catch (err) {
+    showHomeError(err.message);
+  }
+});
+
+trackerListEl.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-chore-id]");
+  const home = currentHome();
+  if (!button || !home) return;
+
+  const chore = chores.find((item) => item.id === button.dataset.choreId);
+  if (!chore) return;
+
+  try {
+    await api(`/api/homes/${home.id}/chores/${chore.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ done: !chore.done })
+    });
     await loadChores(home.id);
     await loadActivity(home.id);
   } catch (err) {
@@ -800,7 +781,7 @@ function renderCalendar() {
   calendarMonthLabel.textContent = monthFormatter.format(calendarCursor);
 
   const choresByDate = {};
-  expandRecurringChores(chores).forEach((chore) => {
+  chores.forEach((chore) => {
     if (!chore.dueDate || chore.dueDate === "No due date") return;
     (choresByDate[chore.dueDate] ||= []).push(chore);
   });
