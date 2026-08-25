@@ -33,6 +33,13 @@ const randomizeBtn = document.getElementById("randomize-btn");
 const reminderBanner = document.getElementById("reminder-banner");
 const activityListEl = document.getElementById("activity-list");
 const activityEmptyEl = document.getElementById("activity-empty");
+const trackerRangeEl = document.getElementById("tracker-range");
+const trackerPercentEl = document.getElementById("tracker-percent");
+const trackerCountEl = document.getElementById("tracker-count");
+const trackerProgressEl = document.querySelector(".tracker-progress");
+const trackerProgressBarEl = document.getElementById("tracker-progress-bar");
+const trackerListEl = document.getElementById("tracker-list");
+const trackerEmptyEl = document.getElementById("tracker-empty");
 
 const mainTabs = document.querySelectorAll(".main-tab");
 const tabPanels = document.querySelectorAll("[data-tab-panel]");
@@ -315,6 +322,7 @@ async function loadChores(homeId) {
     render();
     renderCalendar();
     renderReminderBanner();
+    renderTracker();
   } catch (err) {
     showHomeError(err.message);
   }
@@ -572,11 +580,17 @@ function render() {
     li.className = `chore ${chore.done ? "done" : ""}`;
     const metaParts = [chore.assignee, chore.room, chore.dueDate];
     if (chore.category) metaParts.push(chore.category);
-    if (chore.recurrence && chore.recurrence !== "none") metaParts.push(`repeats ${chore.recurrence}`);
+    const repeatDetails = chore.recurrence && chore.recurrence !== "none"
+      ? `<details class="repeat-details">
+          <summary>Repeats</summary>
+          <span>${escapeHtml(chore.recurrence)}${chore.repeatEndDate ? ` until ${escapeHtml(chore.repeatEndDate)}` : ""}</span>
+        </details>`
+      : "";
     li.innerHTML = `
       <div>
         <strong class="title">${escapeHtml(chore.title)}</strong>
         <div class="meta">${metaParts.map(escapeHtml).join(" · ")}</div>
+        ${repeatDetails}
       </div>
       <div class="row-actions">
         <button type="button" data-action="toggle" data-id="${chore.id}">${chore.done ? "Undo" : "Done"}</button>
@@ -587,6 +601,61 @@ function render() {
   });
 
   emptyState.style.display = visible.length === 0 ? "block" : "none";
+}
+
+function choreDate(chore) {
+  return chore.dueDate && chore.dueDate !== "No due date" ? new Date(`${chore.dueDate}T00:00:00`) : null;
+}
+
+function isCurrentUsersChore(chore) {
+  return currentUser && String(chore.assignee || "").toLowerCase() === String(currentUser.username || "").toLowerCase();
+}
+
+function isInTrackerRange(chore, range) {
+  if (range === "all") return true;
+  const dueDate = choreDate(chore);
+  if (!dueDate) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (range === "month") {
+    return dueDate.getFullYear() === today.getFullYear() && dueDate.getMonth() === today.getMonth();
+  }
+
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  return dueDate >= weekStart && dueDate < weekEnd;
+}
+
+function renderTracker() {
+  if (!trackerRangeEl || !trackerPercentEl) return;
+
+  const trackedChores = chores
+    .filter(isCurrentUsersChore)
+    .filter((chore) => isInTrackerRange(chore, trackerRangeEl.value));
+  const completed = trackedChores.filter((chore) => chore.done).length;
+  const percent = trackedChores.length ? Math.round((completed / trackedChores.length) * 100) : 0;
+
+  trackerPercentEl.textContent = `${percent}%`;
+  trackerCountEl.textContent = trackedChores.length
+    ? `${completed} of ${trackedChores.length} complete`
+    : "No chores assigned to you.";
+  trackerProgressEl.setAttribute("aria-valuenow", String(percent));
+  trackerProgressBarEl.style.width = `${percent}%`;
+  trackerListEl.innerHTML = "";
+
+  trackedChores
+    .slice()
+    .sort((first, second) => Number(first.done) - Number(second.done) || String(first.dueDate).localeCompare(String(second.dueDate)))
+    .forEach((chore) => {
+      const item = document.createElement("li");
+      item.className = chore.done ? "done" : "";
+      item.innerHTML = `<span>${escapeHtml(chore.title)}</span><span>${escapeHtml(chore.dueDate || "No due date")}</span>`;
+      trackerListEl.appendChild(item);
+    });
+  trackerEmptyEl.hidden = trackedChores.length !== 0;
 }
 
 function escapeHtml(text) {
@@ -655,6 +724,7 @@ listEl.addEventListener("click", async (event) => {
 
 filterEl.addEventListener("change", render);
 choreSearchInput.addEventListener("input", render);
+trackerRangeEl.addEventListener("change", renderTracker);
 
 randomizeBtn.addEventListener("click", async () => {
   const home = currentHome();
@@ -699,6 +769,7 @@ function activateMainTab(tabBtn) {
     panel.hidden = panel.dataset.tabPanel !== target;
   });
   if (target === "calendar") renderCalendar();
+  if (target === "tracker") renderTracker();
   if (target === "settings") renderHomeSettingsPanel();
 }
 
